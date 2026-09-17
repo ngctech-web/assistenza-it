@@ -38,6 +38,11 @@ input,textarea,select{width:100%;font:inherit;font-size:16px;padding:12px;border
 .signature-actions{display:flex;gap:10px;padding-top:12px}
 .signature-actions button{flex:1;min-height:50px;font-size:16px}
 body.signature-lock{overflow:hidden!important;position:fixed;width:100%}
+
+#v23Filters{margin-bottom:12px}
+#v23Filters input,#v23Filters select{width:100%;box-sizing:border-box;margin:5px 0 9px}
+#v23Filters .row{align-items:center}
+#v23FilterCount{margin-left:auto}
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
@@ -204,4 +209,50 @@ function clearSignature(){if(!signatureCanvas||!signatureCtx)return;const r=sign
 function openSignature(id){signatureInterventionId=id;signatureScrollY=window.scrollY||0;signatureOldOverflow=document.body.style.overflow;signatureOldPosition=document.body.style.position;signatureOldTop=document.body.style.top;document.body.classList.add('signature-lock');document.body.style.position='fixed';document.body.style.top='-'+signatureScrollY+'px';const o=document.getElementById('signatureOverlay');o.classList.add('open');o.setAttribute('aria-hidden','false');requestAnimationFrame(()=>requestAnimationFrame(prepareSignatureCanvas))}
 function closeSignature(){const o=document.getElementById('signatureOverlay');o.classList.remove('open');o.setAttribute('aria-hidden','true');signatureDrawing=false;document.body.classList.remove('signature-lock');document.body.style.overflow=signatureOldOverflow;document.body.style.position=signatureOldPosition;document.body.style.top=signatureOldTop;window.scrollTo(0,signatureScrollY)}
 function confirmSignature(){if(!signatureCanvas||!signatureHasInk){alert('Inserisci prima la firma del cliente.');return}const it=state.interventions.find(x=>x.id===signatureInterventionId);if(!it)return;it.signature=signatureCanvas.toDataURL('image/png');save();closeSignature();open(it.id)}
-document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('signaturePad');if(!c)return;c.addEventListener('pointerdown',sigDown,{passive:false});c.addEventListener('pointermove',sigMove,{passive:false});c.addEventListener('pointerup',sigUp,{passive:false});c.addEventListener('pointercancel',sigUp,{passive:false})});</script><div id="signatureOverlay" class="signature-overlay" aria-hidden="true"><div class="signature-sheet"><div class="signature-top"><button class="link-btn" type="button" onclick="closeSignature()">Annulla</button><strong>Firma cliente</strong><span style="width:64px"></span></div><div class="signature-hint">Firma con il dito nello spazio qui sotto</div><div id="signaturePadWrap" class="signature-pad-wrap"><canvas id="signaturePad"></canvas><div id="signaturePadGuide" class="signature-guide">Firma qui</div></div><div class="signature-actions"><button class="secondary" type="button" onclick="clearSignature()">Cancella</button><button class="primary" type="button" onclick="confirmSignature()">Conferma firma</button></div></div></div></body></html>
+document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('signaturePad');if(!c)return;c.addEventListener('pointerdown',sigDown,{passive:false});c.addEventListener('pointermove',sigMove,{passive:false});c.addEventListener('pointerup',sigUp,{passive:false});c.addEventListener('pointercancel',sigUp,{passive:false})});
+(function(){
+  function v23Text(i){
+    const c=find(state.clients,i.clientId)||{};
+    return [interventionNumber(i),c.company,c.name,i.problem,i.activities,i.materials,i.notes,status(i)].join(' ').toLowerCase();
+  }
+  function v23Matches(i){
+    const q=(document.getElementById('v23Search')?.value||'').trim().toLowerCase();
+    const st=document.getElementById('v23Status')?.value||'';
+    return (!q||v23Text(i).includes(q))&&(!st||status(i)===st);
+  }
+  function v23Apply(){
+    const buttons=[...document.querySelectorAll('[data-i]')];
+    let visible=0;
+    buttons.forEach(btn=>{
+      const id=btn.getAttribute('data-i');
+      const it=find(state.interventions,id);
+      if(!it)return;
+      const row=btn.closest('.item')||btn.parentElement;
+      const show=v23Matches(it);
+      if(row)row.style.display=show?'':'none';
+      if(show)visible++;
+    });
+    const count=document.getElementById('v23FilterCount');
+    if(count)count.textContent=visible+' intervent'+(visible===1?'o':'i');
+  }
+  function v23Mount(){
+    if(tab!=='interventions')return;
+    const app=document.getElementById('app');
+    if(!app)return;
+    if(!document.getElementById('v23Filters')){
+      const box=document.createElement('div');
+      box.id='v23Filters';
+      box.className='card no-print';
+      box.innerHTML='<h3>🔎 Cerca interventi</h3><input id="v23Search" type="search" placeholder="Cliente, numero, problema o note"><select id="v23Status"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completato</option></select><div class="row"><button type="button" class="secondary" id="v23Clear">Azzera filtri</button><span id="v23FilterCount" class="muted small"></span></div>';
+      app.prepend(box);
+      document.getElementById('v23Search').oninput=v23Apply;
+      document.getElementById('v23Status').onchange=v23Apply;
+      document.getElementById('v23Clear').onclick=()=>{document.getElementById('v23Search').value='';document.getElementById('v23Status').value='';v23Apply()};
+    }
+    v23Apply();
+  }
+  window.v23Mount=v23Mount;
+  const originalRender=window.render;
+  window.render=function(){originalRender();setTimeout(v23Mount,0)};
+})();
+</script><div id="signatureOverlay" class="signature-overlay" aria-hidden="true"><div class="signature-sheet"><div class="signature-top"><button class="link-btn" type="button" onclick="closeSignature()">Annulla</button><strong>Firma cliente</strong><span style="width:64px"></span></div><div class="signature-hint">Firma con il dito nello spazio qui sotto</div><div id="signaturePadWrap" class="signature-pad-wrap"><canvas id="signaturePad"></canvas><div id="signaturePadGuide" class="signature-guide">Firma qui</div></div><div class="signature-actions"><button class="secondary" type="button" onclick="clearSignature()">Cancella</button><button class="primary" type="button" onclick="confirmSignature()">Conferma firma</button></div></div></div></body></html>
