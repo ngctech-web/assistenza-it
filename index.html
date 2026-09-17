@@ -22,7 +22,7 @@ input,textarea,select{width:100%;font:inherit;font-size:16px;padding:12px;border
  .card{box-shadow:none;border:0;border-radius:0;page-break-inside:avoid}
  .print-only{display:block}
 }
-</style></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
 'use strict';
@@ -102,34 +102,39 @@ function open(iid){
  (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':'') )+
  '</div>'+
  '<div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
- '<div class="card"><h3>📸 Foto intervento</h3><input id="photoInput" type="file" accept="image/*" multiple capture="environment"><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
+ '<div class="card"><h3>📸 Foto intervento</h3><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
  '<div class="card"><h3>✍️ Firma cliente</h3><canvas id="signature" class="signature"></canvas><div class="sig-actions"><button class="secondary" id="clearSig">Cancella firma</button><button class="secondary" id="saveSig">Salva firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
  (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'');
  const s=document.getElementById('start'),e=document.getElementById('end');
  if(s)s.onclick=startInt;if(e)e.onclick=endInt;
  document.getElementById('sv').onclick=saveInt;
- document.getElementById('photoInput').addEventListener('change',async ev=>{
-   const files=[...ev.target.files];
+ async function addPhotos(fileList){
+   const files=[...fileList];
    if(!i.photos)i.photos=[];
    for(const f of files){if(f.type.startsWith('image/'))i.photos.push(await dataURL(f))}
    save();open(i.id);
- });
- const canvas=document.getElementById('signature'),ctx=canvas.getContext('2d');
- function resizeCanvas(){
-   const ratio=Math.max(window.devicePixelRatio||1,1),r=canvas.getBoundingClientRect();
-   const old=canvas.toDataURL();canvas.width=r.width*ratio;canvas.height=r.height*ratio;ctx.scale(ratio,ratio);ctx.lineWidth=2;ctx.lineCap='round';
-   if(i.signature){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,r.width,r.height);im.src=i.signature}
  }
- resizeCanvas();
- let drawing=false;
- const point=e=>{const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}};
- canvas.addEventListener('pointerdown',e=>{drawing=true;canvas.setPointerCapture(e.pointerId);const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y)});
- canvas.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke()});
- canvas.addEventListener('pointerup',()=>drawing=false);
- canvas.addEventListener('pointercancel',()=>drawing=false);
+ document.getElementById('galleryBtn').onclick=()=>document.getElementById('galleryInput').click();
+ document.getElementById('cameraBtn').onclick=()=>document.getElementById('cameraInput').click();
+ document.getElementById('galleryInput').addEventListener('change',e=>addPhotos(e.target.files));
+ document.getElementById('cameraInput').addEventListener('change',e=>addPhotos(e.target.files));
+ const canvas=document.getElementById('signature'),ctx=canvas.getContext('2d');
+ function setupCanvas(){
+   const rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
+   canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(rect.height*ratio);
+   ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
+   if(i.signature){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,rect.width,rect.height);im.src=i.signature}
+ }
+ setupCanvas();
+ let drawing=false,last=null;
+ function pos(ev){const r=canvas.getBoundingClientRect();return {x:ev.clientX-r.left,y:ev.clientY-r.top}}
+ canvas.addEventListener('pointerdown',ev=>{ev.preventDefault();drawing=true;last=pos(ev);canvas.setPointerCapture(ev.pointerId)});
+ canvas.addEventListener('pointermove',ev=>{if(!drawing)return;ev.preventDefault();const p=pos(ev);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p});
+ function endDraw(ev){drawing=false;last=null;try{canvas.releasePointerCapture(ev.pointerId)}catch(_){}}
+ canvas.addEventListener('pointerup',endDraw);canvas.addEventListener('pointercancel',endDraw);canvas.addEventListener('pointerleave',()=>{});
  document.getElementById('clearSig').onclick=()=>{ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);i.signature='';save();document.getElementById('sigMsg').textContent='Firma cancellata.'};
  document.getElementById('saveSig').onclick=()=>{i.signature=canvas.toDataURL('image/png');save();document.getElementById('sigMsg').textContent='Firma salvata.'};
- const pdf=document.getElementById('pdf');if(pdf)pdf.onclick=()=>window.print();
+ const pdf=document.getElementById('pdf');if(pdf)pdf.onclick=()=>generatePDF(i);
  const sh=document.getElementById('share');if(sh)sh.onclick=shareReport;
  if(i.start&&!i.end)startTimer(i,'dt');
 }
@@ -147,6 +152,41 @@ function interventions(){
  }).join('');
  a.innerHTML='<div class="card">'+(state.interventions.length?items:'<div class="empty">Nessun intervento.</div>')+'</div>';
  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i));
+}
+async function generatePDF(i){
+ try{
+   if(!window.jspdf||!window.jspdf.jsPDF){alert('Libreria PDF non disponibile. Controlla la connessione internet e riprova.');return}
+   const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'});
+   const c=find(state.clients,i.clientId), left=18, width=174;
+   let y=18;
+   doc.setFontSize(20);doc.text('RAPPORTO DI INTERVENTO',left,y);y+=9;
+   doc.setFontSize(10);doc.text(interventionNumber(i),left,y);y+=9;
+   doc.setFontSize(12);doc.text('Cliente: '+(c?.company||c?.name||''),left,y);y+=7;
+   if(c?.name&&c?.company) {doc.text('Referente: '+c.name,left,y);y+=7}
+   if(c?.address){doc.text('Indirizzo: '+c.address,left,y);y+=7}
+   doc.text('Data: '+d(i.date),left,y);y+=7;
+   doc.text('Inizio: '+(i.start?t(i.start):'-')+'    Fine: '+(i.end?t(i.end):'-')+'    Durata: '+(i.end?dur(sec(i)):'-'),left,y);y+=10;
+   function section(title,text){
+     doc.setFontSize(12);doc.text(title,left,y);y+=6;doc.setFontSize(10);
+     const lines=doc.splitTextToSize(text||'-',width);doc.text(lines,left,y);y+=lines.length*5+7;
+     if(y>270){doc.addPage();y=18}
+   }
+   section('PROBLEMA',i.problem);section('ATTIVITÀ ESEGUITE',i.workDone);section('MATERIALI',i.materials);section('NOTE',i.notes);
+   if(i.photos&&i.photos.length){
+     doc.setFontSize(12);doc.text('FOTO',left,y);y+=7;
+     for(const p of i.photos.slice(0,6)){
+       if(y>245){doc.addPage();y=18}
+       try{doc.addImage(p,'JPEG',left,y,80,60);y+=65}catch(_){}
+     }
+   }
+   if(i.signature){
+     if(y>230){doc.addPage();y=18}
+     doc.setFontSize(12);doc.text('FIRMA CLIENTE',left,y);y+=6;
+     try{doc.addImage(i.signature,'PNG',left,y,80,45)}catch(_){}
+   }
+   const filename=(interventionNumber(i)+'_'+(c?.company||c?.name||'cliente').replace(/[^a-z0-9àèéìòù _-]/gi,'').replace(/\s+/g,'_')+'.pdf');
+   doc.save(filename);
+ }catch(err){console.error(err);alert('Errore nella generazione del PDF. Riprova.')}
 }
 function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nFirma cliente: '+(i.signature?'Acquisita':'Non acquisita')+'\nFoto allegate: '+((i.photos||[]).length)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
 function shareReport(){const text=report(find(state.interventions,current));if(navigator.share)navigator.share({title:'Rapporto di intervento',text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Rapporto copiato.'));else alert(text)}
