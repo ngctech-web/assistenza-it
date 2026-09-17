@@ -46,6 +46,10 @@ body.signature-lock{overflow:hidden!important;position:fixed;width:100%}
 
 #v23Filters label{display:block;margin-top:4px;font-size:14px;font-weight:600}
 #v23Filters select,#v23Filters input{min-height:42px}
+
+.client-stats{align-items:stretch}
+.client-stats .card{flex:1}
+@media(max-width:520px){.client-stats .stat{font-size:24px}}
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
@@ -102,7 +106,20 @@ function saveClient(){
  // Mostra subito il cliente appena creato.
  clientDetail(client.id);
 }
-function clientDetail(cid){const c=find(state.clients,cid),h=state.interventions.filter(i=>i.clientId===cid);document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><button class="primary" id="newc">＋ Nuovo intervento</button></div><div class="card"><h3>Storico interventi</h3>'+(h.length?h.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+esc(interventionNumber(i))+'</b> · '+d(i.date)+'<br>'+esc(i.problem||'Intervento tecnico')+'<br><span class="muted">'+(i.end?dur(sec(i)):'In corso')+'</span></button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';newc.onclick=()=>newIntervention(cid);document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))}
+function clientDetail(cid){
+ const c=find(state.clients,cid);
+ const h=state.interventions.filter(i=>i.clientId===cid).sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+ const completed=h.filter(i=>i.end).length;
+ const openCount=h.filter(i=>!i.end).length;
+ const last=h[0];
+ const lastLabel=last?(interventionNumber(last)+' · '+d(last.date)):'Nessun intervento';
+ document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><button class="primary" id="newc">＋ Nuovo intervento</button></div>'+
+ '<div class="row client-stats"><div class="card"><div class="stat">'+h.length+'</div><span class="muted">Interventi totali</span></div><div class="card"><div class="stat">'+completed+'</div><span class="muted">Completati</span></div><div class="card"><div class="stat">'+openCount+'</div><span class="muted">Aperti</span></div></div>'+
+ '<div class="card"><h3>🕘 Ultimo intervento</h3><p><b>'+esc(lastLabel)+'</b>'+(last?'<br>'+esc(last.problem||'Intervento tecnico'):'')+'</p></div>'+
+ '<div class="card"><h3>Storico interventi</h3>'+(h.length?h.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+esc(interventionNumber(i))+'</b> · '+d(i.date)+'<br>'+esc(i.problem||'Intervento tecnico')+'<br><span class="muted">'+(i.end?dur(sec(i)):'In corso')+'</span></button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';
+ newc.onclick=()=>newIntervention(cid);
+ document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))
+}
 function newIntervention(pre){
  if(!state.clients.length){alert('Prima crea almeno un cliente.');showTab('clients');return}
  document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo intervento</h2><form id="interventionForm"><label>Cliente</label><select id="clientSelect">'+state.clients.map(c=>'<option value="'+c.id+'" '+(c.id===pre?'selected':'')+'>'+esc(c.company||c.name)+'</option>').join('')+'</select><label>Problema</label><textarea id="problemInput" rows="3" placeholder="Descrizione del problema"></textarea><label>Note iniziali</label><textarea id="notesInput" rows="3"></textarea><button type="submit" class="primary">Crea intervento</button></form></div>';
