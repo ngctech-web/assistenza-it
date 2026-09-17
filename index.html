@@ -43,6 +43,9 @@ body.signature-lock{overflow:hidden!important;position:fixed;width:100%}
 #v23Filters input,#v23Filters select{width:100%;box-sizing:border-box;margin:5px 0 9px}
 #v23Filters .row{align-items:center}
 #v23FilterCount{margin-left:auto}
+
+#v23Filters label{display:block;margin-top:4px;font-size:14px;font-weight:600}
+#v23Filters select,#v23Filters input{min-height:42px}
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
@@ -218,7 +221,8 @@ document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementByI
   function v23Matches(i){
     const q=(document.getElementById('v23Search')?.value||'').trim().toLowerCase();
     const st=document.getElementById('v23Status')?.value||'';
-    return (!q||v23Text(i).includes(q))&&(!st||status(i)===st);
+    const cl=document.getElementById('v23Client')?.value||'';
+    return (!cl||String(i.clientId)===String(cl))&&(!q||v23Text(i).includes(q))&&(!st||status(i)===st);
   }
   function v23Apply(){
     const buttons=[...document.querySelectorAll('[data-i]')];
@@ -243,11 +247,12 @@ document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementByI
       const box=document.createElement('div');
       box.id='v23Filters';
       box.className='card no-print';
-      box.innerHTML='<h3>🔎 Cerca interventi</h3><input id="v23Search" type="search" placeholder="Cliente, numero, problema o note"><select id="v23Status"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completato</option></select><div class="row"><button type="button" class="secondary" id="v23Clear">Azzera filtri</button><span id="v23FilterCount" class="muted small"></span></div>';
+      box.innerHTML='<h3>🔎 Filtra interventi</h3><label>Cliente</label><select id="v23Client"><option value="">Tutti i clienti</option>'+state.clients.map(c=>'<option value="'+c.id+'">'+esc(c.company||c.name)+'</option>').join('')+'</select><input id="v23Search" type="search" placeholder="Numero, problema o note"><select id="v23Status"><option value="">Tutti gli stati</option><option value="Da iniziare">Da iniziare</option><option value="In corso">In corso</option><option value="Completato">Completato</option></select><div class="row"><button type="button" class="secondary" id="v23Clear">Azzera filtri</button><span id="v23FilterCount" class="muted small"></span></div>';
       app.prepend(box);
+      document.getElementById('v23Client').onchange=v23Apply;
       document.getElementById('v23Search').oninput=v23Apply;
       document.getElementById('v23Status').onchange=v23Apply;
-      document.getElementById('v23Clear').onclick=()=>{document.getElementById('v23Search').value='';document.getElementById('v23Status').value='';v23Apply()};
+      document.getElementById('v23Clear').onclick=()=>{document.getElementById('v23Client').value='';document.getElementById('v23Search').value='';document.getElementById('v23Status').value='';v23Apply()};
     }
     v23Apply();
   }
