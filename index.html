@@ -50,7 +50,161 @@ body.signature-lock{overflow:hidden!important;position:fixed;width:100%}
 .client-stats{align-items:stretch}
 .client-stats .card{flex:1}
 @media(max-width:520px){.client-stats .stat{font-size:24px}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style id="v27-graphics">
+:root{
+  --v27-primary:#2563eb;
+  --v27-primary-dark:#1d4ed8;
+  --v27-bg:#f4f7fb;
+  --v27-card:#ffffff;
+  --v27-text:#172033;
+  --v27-muted:#6b7280;
+  --v27-border:#e5eaf2;
+  --v27-shadow:0 8px 28px rgba(15,23,42,.07);
+  --v27-radius:18px;
+}
+*{box-sizing:border-box}
+html{background:var(--v27-bg)}
+body{
+  background:linear-gradient(180deg,#eef4ff 0,#f7f9fc 180px,var(--v27-bg) 100%);
+  color:var(--v27-text);
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit}
+button{
+  border-radius:14px;
+  transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease;
+}
+button:active{transform:scale(.98)}
+input,select,textarea{
+  border:1px solid var(--v27-border)!important;
+  border-radius:13px!important;
+  background:#fff!important;
+  box-shadow:0 2px 8px rgba(15,23,42,.03)!important;
+}
+input:focus,select:focus,textarea:focus{
+  outline:none!important;
+  border-color:#93c5fd!important;
+  box-shadow:0 0 0 4px rgba(37,99,235,.10)!important;
+}
+header, .header, .topbar, nav{
+  box-shadow:0 6px 22px rgba(15,23,42,.08)!important;
+}
+main,.container,.content{max-width:980px}
+.card,.panel,.box,.section,.client-card,.intervention-card{
+  border:1px solid var(--v27-border)!important;
+  border-radius:var(--v27-radius)!important;
+  box-shadow:var(--v27-shadow)!important;
+  background:var(--v27-card)!important;
+}
+h1,h2,h3{letter-spacing:-.02em}
+h1{font-weight:800}
+h2{font-weight:750}
+label{font-weight:650;color:#374151}
+small,.muted,.secondary{color:var(--v27-muted)}
+
+.v27-brand{
+  display:flex;align-items:center;gap:12px;
+}
+.v27-brand-mark{
+  width:42px;height:42px;border-radius:13px;
+  display:grid;place-items:center;
+  color:#fff;font-weight:800;font-size:18px;
+  background:linear-gradient(135deg,#2563eb,#4f46e5);
+  box-shadow:0 7px 18px rgba(37,99,235,.28);
+}
+.v27-brand-title{font-size:18px;font-weight:800;line-height:1.05}
+.v27-brand-sub{font-size:11px;color:var(--v27-muted);margin-top:3px}
+
+.v27-hero{
+  margin:14px 0 18px;
+  padding:22px;
+  border-radius:24px;
+  color:#fff;
+  background:linear-gradient(135deg,#1d4ed8,#4f46e5 70%,#6366f1);
+  box-shadow:0 14px 34px rgba(37,99,235,.20);
+}
+.v27-hero h1,.v27-hero h2,.v27-hero p{color:#fff!important;margin-top:0}
+.v27-hero p{opacity:.88}
+.v27-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.v27-stat{
+  padding:18px;border:1px solid var(--v27-border);
+  border-radius:18px;background:#fff;box-shadow:var(--v27-shadow);
+}
+.v27-stat-value{font-size:28px;font-weight:850;line-height:1}
+.v27-stat-label{margin-top:7px;font-size:12px;color:var(--v27-muted);font-weight:650}
+
+.v27-section-title{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin:22px 2px 10px;
+}
+.v27-section-title h2{margin:0}
+.v27-icon{
+  width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+  background:#eff6ff;color:var(--v27-primary);font-weight:800;
+}
+.v27-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.v27-actions{display:flex;gap:10px;flex-wrap:wrap}
+.v27-actions button{
+  box-shadow:0 5px 14px rgba(15,23,42,.08);
+}
+.v27-primary{
+  background:linear-gradient(135deg,var(--v27-primary),#4f46e5)!important;
+  color:#fff!important;border:0!important;
+  box-shadow:0 8px 18px rgba(37,99,235,.22)!important;
+}
+.v27-soft{background:#eff6ff!important;color:#1d4ed8!important;border:1px solid #dbeafe!important}
+.v27-danger{background:#fef2f2!important;color:#b91c1c!important;border:1px solid #fee2e2!important}
+
+.v27-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;border-radius:999px;font-size:11px;font-weight:750;
+}
+.v27-badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.v27-badge.start{background:#fff7ed;color:#c2410c}
+.v27-badge.progress{background:#eff6ff;color:#2563eb}
+.v27-badge.done{background:#ecfdf5;color:#047857}
+
+.v27-filter{
+  padding:14px;border-radius:18px;background:#fff;
+  border:1px solid var(--v27-border);box-shadow:var(--v27-shadow);
+}
+.v27-empty{
+  text-align:center;padding:30px 18px;color:var(--v27-muted);
+}
+.v27-timer{
+  font-variant-numeric:tabular-nums;
+  font-size:42px!important;font-weight:850!important;letter-spacing:-.04em;
+}
+.v27-photo-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:10px;
+}
+.v27-photo-grid img{
+  width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:14px;
+  border:1px solid var(--v27-border);
+}
+.v27-signature-preview{
+  border:1px dashed #cbd5e1!important;border-radius:14px!important;
+  background:#f8fafc!important;
+}
+.v27-footer{
+  margin:30px 0 18px;text-align:center;color:#94a3b8;font-size:11px;
+}
+@media(min-width:700px){
+  .v27-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .v27-photo-grid{grid-template-columns:repeat(4,1fr)}
+}
+@media(max-width:520px){
+  body{font-size:14px}
+  .v27-hero{padding:19px;border-radius:21px}
+  .v27-actions button{flex:1 1 auto}
+  .v27-stat{padding:15px}
+}
+</style>
+
+</head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
 'use strict';
@@ -351,4 +505,24 @@ document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementByI
   const originalRender=window.render;
   window.render=function(){originalRender();setTimeout(v23Mount,0)};
 })();
-</script><div id="signatureOverlay" class="signature-overlay" aria-hidden="true"><div class="signature-sheet"><div class="signature-top"><button class="link-btn" type="button" onclick="closeSignature()">Annulla</button><strong>Firma cliente</strong><span style="width:64px"></span></div><div class="signature-hint">Firma con il dito nello spazio qui sotto</div><div id="signaturePadWrap" class="signature-pad-wrap"><canvas id="signaturePad"></canvas><div id="signaturePadGuide" class="signature-guide">Firma qui</div></div><div class="signature-actions"><button class="secondary" type="button" onclick="clearSignature()">Cancella</button><button class="primary" type="button" onclick="confirmSignature()">Conferma firma</button></div></div></div></body></html>
+</script><div id="signatureOverlay" class="signature-overlay" aria-hidden="true"><div class="signature-sheet"><div class="signature-top"><button class="link-btn" type="button" onclick="closeSignature()">Annulla</button><strong>Firma cliente</strong><span style="width:64px"></span></div><div class="signature-hint">Firma con il dito nello spazio qui sotto</div><div id="signaturePadWrap" class="signature-pad-wrap"><canvas id="signaturePad"></canvas><div id="signaturePadGuide" class="signature-guide">Firma qui</div></div><div class="signature-actions"><button class="secondary" type="button" onclick="clearSignature()">Cancella</button><button class="primary" type="button" onclick="confirmSignature()">Conferma firma</button></div></div></div>
+<script id="v27-visual-hooks">
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    document.querySelectorAll('button').forEach(function(b){
+      const t=(b.textContent||'').trim().toLowerCase();
+      if(t.includes('nuova') || t.includes('avvia') || t.includes('inizia') || t.includes('salva') || t.includes('conferma'))
+        b.classList.add('v27-primary');
+      else if(t.includes('annulla') || t.includes('elimina') || t.includes('cancella'))
+        b.classList.add('v27-danger');
+      else if(t.includes('pdf') || t.includes('condividi') || t.includes('galleria') || t.includes('fotocamera'))
+        b.classList.add('v27-soft');
+    });
+    document.querySelectorAll('[class*="timer"], [id*="timer"]').forEach(function(e){
+      e.classList.add('v27-timer');
+    });
+  }catch(e){}
+});
+</script>
+
+</body></html>
