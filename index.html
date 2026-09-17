@@ -32,10 +32,41 @@ function showTab(x){tab=x;current=null;stop();render()}
 function render(){['Home','Clients','Interventions'].forEach(x=>document.getElementById('tab'+x).classList.toggle('active',tab===x.toLowerCase()));if(tab==='home')home();else if(tab==='clients')clients();else interventions()}
 function home(){const r=running(),a=document.getElementById('app');a.innerHTML='<div class="card">'+(r?'<span class="badge">● INTERVENTO IN CORSO</span><h2>'+esc(cname(r.clientId))+'</h2><div class="timer" id="timer">'+dur(sec(r))+'</div><button class="primary" id="open">Apri intervento</button>':'<h2>Nuovo intervento</h2><p class="muted">Registra automaticamente inizio, fine e durata dell’assistenza.</p><button class="primary" id="new">▶️ Nuovo intervento</button>')+'</div><div class="row"><div class="card"><div class="stat">'+state.clients.length+'</div><span class="muted">Clienti</span></div><div class="card"><div class="stat">'+state.interventions.length+'</div><span class="muted">Interventi</span></div></div>';if(r){document.getElementById('open').onclick=()=>open(r.id);startTimer(r,'timer')}else document.getElementById('new').onclick=()=>newIntervention()}
 function clients(){const a=document.getElementById('app');a.innerHTML='<div class="card"><button class="primary" id="add">＋ Nuovo cliente</button></div><div class="card" id="list"></div>';document.getElementById('add').onclick=newClient;const l=document.getElementById('list');if(!state.clients.length){l.innerHTML='<div class="empty">Nessun cliente.</div>';return}l.innerHTML=state.clients.map(c=>'<div class="item"><button data-c="'+c.id+'"><b>'+esc(c.company||c.name)+'</b>'+(c.company?'<br><span class="muted">'+esc(c.name)+'</span>':'')+(c.phone?'<br><span class="muted">'+esc(c.phone)+'</span>':'')+'</button></div>').join('');l.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>clientDetail(b.dataset.c))}
-function newClient(){document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo cliente</h2><label>Nome / Referente</label><input id="n"><label>Azienda</label><input id="co"><label>Telefono</label><input id="ph" type="tel"><label>Email</label><input id="em" type="email"><label>Indirizzo</label><input id="ad"><div class="row"><button class="secondary" id="cancel">Annulla</button><button class="primary" id="save">Salva</button></div></div>';cancel.onclick=render;save.onclick=saveClient}
-function saveClient(){if(!n.value.trim()){alert('Inserisci il nome.');return}state.clients.push({id:id(),name:n.value.trim(),company:co.value.trim(),phone:ph.value.trim(),email:em.value.trim(),address:ad.value.trim()});save();render()}
+function newClient(){
+ const a=document.getElementById('app');
+ a.innerHTML='<div class="card"><h2>Nuovo cliente</h2><form id="clientForm"><label>Nome / Referente</label><input id="clientNameInput" autocomplete="name" required><label>Azienda</label><input id="clientCompanyInput"><label>Telefono</label><input id="clientPhoneInput" type="tel" autocomplete="tel"><label>Email</label><input id="clientEmailInput" type="email" autocomplete="email"><label>Indirizzo</label><input id="clientAddressInput" autocomplete="street-address"><div class="row"><button type="button" class="secondary" id="cancelClient">Annulla</button><button type="submit" class="primary">Salva</button></div></form></div>';
+ const form=document.getElementById('clientForm');
+ document.getElementById('cancelClient').addEventListener('click',render);
+ form.addEventListener('submit',function(event){event.preventDefault();saveClient();});
+ document.getElementById('clientNameInput').focus();
+}
+function saveClient(){
+ const name=document.getElementById('clientNameInput').value.trim();
+ if(!name){alert('Inserisci il nome del cliente.');return}
+ const client={
+   id:id(),
+   name:name,
+   company:document.getElementById('clientCompanyInput').value.trim(),
+   phone:document.getElementById('clientPhoneInput').value.trim(),
+   email:document.getElementById('clientEmailInput').value.trim(),
+   address:document.getElementById('clientAddressInput').value.trim()
+ };
+ state.clients.push(client);
+ save();
+ // Mostra subito il cliente appena creato.
+ clientDetail(client.id);
+}
 function clientDetail(cid){const c=find(state.clients,cid),h=state.interventions.filter(i=>i.clientId===cid);document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><button class="primary" id="newc">＋ Nuovo intervento</button></div><div class="card"><h3>Storico interventi</h3>'+(h.length?h.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+d(i.date)+'</b><br>'+esc(i.problem||'Intervento tecnico')+'<br><span class="muted">'+(i.end?dur(sec(i)):'In corso')+'</span></button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';newc.onclick=()=>newIntervention(cid);document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))}
-function newIntervention(pre){if(!state.clients.length){alert('Prima crea un cliente.');showTab('clients');return}document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo intervento</h2><label>Cliente</label><select id="sc">'+state.clients.map(c=>'<option value="'+c.id+'" '+(c.id===pre?'selected':'')+'>'+esc(c.company||c.name)+'</option>').join('')+'</select><label>Problema</label><textarea id="pr" rows="3"></textarea><label>Note iniziali</label><textarea id="no" rows="3"></textarea><button class="primary" id="create">Crea intervento</button></div>';create.onclick=()=>{if(running()){alert('C’è già un intervento in corso.');return}const i={id:id(),clientId:sc.value,date:new Date().toISOString(),start:null,end:null,problem:pr.value.trim(),workDone:'',materials:'',notes:no.value.trim()};state.interventions.unshift(i);save();open(i.id)}}
+function newIntervention(pre){
+ if(!state.clients.length){alert('Prima crea almeno un cliente.');showTab('clients');return}
+ document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo intervento</h2><form id="interventionForm"><label>Cliente</label><select id="clientSelect">'+state.clients.map(c=>'<option value="'+c.id+'" '+(c.id===pre?'selected':'')+'>'+esc(c.company||c.name)+'</option>').join('')+'</select><label>Problema</label><textarea id="problemInput" rows="3" placeholder="Descrizione del problema"></textarea><label>Note iniziali</label><textarea id="notesInput" rows="3"></textarea><button type="submit" class="primary">Crea intervento</button></form></div>';
+ document.getElementById('interventionForm').addEventListener('submit',function(event){
+   event.preventDefault();
+   if(running()){alert('C’è già un intervento in corso.');return}
+   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),start:null,end:null,problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
+   state.interventions.unshift(i);save();open(i.id);
+ });
+}
 function open(iid){current=iid;stop();const i=find(state.interventions,iid);if(!i)return;const a=document.getElementById('app');a.innerHTML='<div class="card">'+(i.start&&!i.end?'<span class="badge">● IN CORSO</span>':'<span class="muted">INTERVENTO</span>')+'<h2>'+esc(cname(i.clientId))+'</h2><p>'+d(i.date)+'</p>'+(i.start?'<p><b>Inizio:</b> '+t(i.start)+(i.end?'<br><b>Fine:</b> '+t(i.end)+'<br><b>Durata:</b> '+dur(sec(i)):'')+'</p>':'')+(!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div class="timer" id="dt">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':''))+'</div><div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+(i.end?'<div class="card"><button class="primary" id="share">Condividi rapporto</button></div>':'');if(document.getElementById('start'))start.onclick=startInt;if(document.getElementById('end'))end.onclick=endInt;sv.onclick=saveInt;if(document.getElementById('share'))share.onclick=shareReport;if(i.start&&!i.end)startTimer(i,'dt')}
 function fields(i){i.problem=ep.value.trim();i.workDone=wd.value.trim();i.materials=ma.value.trim();i.notes=en.value.trim()}
 function startInt(){const i=find(state.interventions,current);if(running()){alert('C’è già un intervento in corso.');return}fields(i);i.start=new Date().toISOString();save();open(i.id)}
