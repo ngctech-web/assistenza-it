@@ -22,6 +22,22 @@ input,textarea,select{width:100%;font:inherit;font-size:16px;padding:12px;border
  .card{box-shadow:none;border:0;border-radius:0;page-break-inside:avoid}
  .print-only{display:block}
 }
+
+.signature-preview{margin-top:10px;padding:10px;border:1px solid #ddd;border-radius:12px;background:#fff}
+.signature-preview img{display:block;width:100%;height:100px;object-fit:contain;border-radius:8px}
+.link-btn{border:0;background:transparent;color:#2563eb;padding:8px 0;font-size:15px;font-weight:600}
+.signature-overlay{display:none;position:fixed;inset:0;z-index:99999;background:#f5f6fa;overscroll-behavior:none}
+.signature-overlay.open{display:block}
+.signature-sheet{width:100%;height:100dvh;min-height:100vh;box-sizing:border-box;display:flex;flex-direction:column;padding:max(12px,env(safe-area-inset-top)) 16px max(14px,env(safe-area-inset-bottom));overflow:hidden}
+.signature-top{display:flex;align-items:center;justify-content:space-between;min-height:46px}
+.signature-hint{text-align:center;color:#666;font-size:14px;padding:8px 0 12px}
+.signature-pad-wrap{position:relative;flex:1;min-height:220px;background:#fff;border:2px solid #cfd5df;border-radius:16px;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.signature-pad-wrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.signature-guide{position:absolute;left:0;right:0;top:54%;text-align:center;color:#c5cad3;font-size:28px;font-weight:600;pointer-events:none;transform:translateY(-50%)}
+.signature-guide.hidden{display:none}
+.signature-actions{display:flex;gap:10px;padding-top:12px}
+.signature-actions button{flex:1;min-height:50px;font-size:16px}
+body.signature-lock{overflow:hidden!important;position:fixed;width:100%}
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
@@ -103,7 +119,7 @@ function open(iid){
  '</div>'+
  '<div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
  '<div class="card"><h3>📸 Foto intervento</h3><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
- '<div class="card"><h3>✍️ Firma cliente</h3><canvas id="signature" class="signature"></canvas><div class="sig-actions"><button class="secondary" id="clearSig">Cancella firma</button><button class="secondary" id="saveSig">Salva firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
+ '<div class="card"><h3>✍️ Firma cliente</h3><button type="button" class="secondary" id="openSig">✍️ Firma cliente</button><div id="signaturePreview" class="signature-preview" style="'+(i.signature?'display:block':'display:none')+'">'+(i.signature?'<img src="'+i.signature+'" alt="Firma cliente">':'')+'<button type="button" class="link-btn" id="editSig">Modifica firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
  (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'');
  const s=document.getElementById('start'),e=document.getElementById('end');
  if(s)s.onclick=startInt;if(e)e.onclick=endInt;
@@ -118,22 +134,9 @@ function open(iid){
  document.getElementById('cameraBtn').onclick=()=>document.getElementById('cameraInput').click();
  document.getElementById('galleryInput').addEventListener('change',e=>addPhotos(e.target.files));
  document.getElementById('cameraInput').addEventListener('change',e=>addPhotos(e.target.files));
- const canvas=document.getElementById('signature'),ctx=canvas.getContext('2d');
- function setupCanvas(){
-   const rect=canvas.getBoundingClientRect(),ratio=window.devicePixelRatio||1;
-   canvas.width=Math.round(rect.width*ratio);canvas.height=Math.round(rect.height*ratio);
-   ctx.setTransform(ratio,0,0,ratio,0,0);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.lineJoin='round';
-   if(i.signature){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,rect.width,rect.height);im.src=i.signature}
- }
- setupCanvas();
- let drawing=false,last=null;
- function pos(ev){const r=canvas.getBoundingClientRect();return {x:ev.clientX-r.left,y:ev.clientY-r.top}}
- canvas.addEventListener('pointerdown',ev=>{ev.preventDefault();drawing=true;last=pos(ev);canvas.setPointerCapture(ev.pointerId)});
- canvas.addEventListener('pointermove',ev=>{if(!drawing)return;ev.preventDefault();const p=pos(ev);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p});
- function endDraw(ev){drawing=false;last=null;try{canvas.releasePointerCapture(ev.pointerId)}catch(_){}}
- canvas.addEventListener('pointerup',endDraw);canvas.addEventListener('pointercancel',endDraw);canvas.addEventListener('pointerleave',()=>{});
- document.getElementById('clearSig').onclick=()=>{ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);i.signature='';save();document.getElementById('sigMsg').textContent='Firma cancellata.'};
- document.getElementById('saveSig').onclick=()=>{i.signature=canvas.toDataURL('image/png');save();document.getElementById('sigMsg').textContent='Firma salvata.'};
+ 
+ document.getElementById('openSig').onclick=()=>openSignature(i.id);
+ document.getElementById('editSig').onclick=()=>openSignature(i.id);
  const pdf=document.getElementById('pdf');if(pdf)pdf.onclick=()=>generatePDF(i);
  const sh=document.getElementById('share');if(sh)sh.onclick=shareReport;
  if(i.start&&!i.end)startTimer(i,'dt');
@@ -191,4 +194,14 @@ async function generatePDF(i){
 function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nFirma cliente: '+(i.signature?'Acquisita':'Non acquisita')+'\nFoto allegate: '+((i.photos||[]).length)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
 function shareReport(){const text=report(find(state.interventions,current));if(navigator.share)navigator.share({title:'Rapporto di intervento',text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Rapporto copiato.'));else alert(text)}
 load();render();
-</script></body></html>
+let signatureCanvas=null,signatureCtx=null,signatureDrawing=false,signatureHasInk=false,signatureInterventionId=null,signatureScrollY=0,signatureOldOverflow='',signatureOldPosition='',signatureOldTop='';
+function prepareSignatureCanvas(){const c=document.getElementById('signaturePad'),w=document.getElementById('signaturePadWrap');if(!c||!w)return;signatureCanvas=c;const r=w.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,3);c.width=Math.max(1,Math.round(r.width*dpr));c.height=Math.max(1,Math.round(r.height*dpr));c.style.width=r.width+'px';c.style.height=r.height+'px';signatureCtx=c.getContext('2d');signatureCtx.setTransform(dpr,0,0,dpr,0,0);signatureCtx.lineCap='round';signatureCtx.lineJoin='round';signatureCtx.strokeStyle='#111827';signatureCtx.lineWidth=Math.max(3,Math.min(5,r.width/90));const it=state.interventions.find(x=>x.id===signatureInterventionId);if(it&&it.signature){const img=new Image();img.onload=()=>{signatureCtx.clearRect(0,0,r.width,r.height);signatureCtx.drawImage(img,0,0,r.width,r.height);signatureHasInk=true;document.getElementById('signaturePadGuide').classList.add('hidden')};img.src=it.signature}else{signatureHasInk=false;document.getElementById('signaturePadGuide').classList.remove('hidden')}}
+function sigPoint(e){const r=signatureCanvas.getBoundingClientRect();return{x:Math.max(0,Math.min(r.width,e.clientX-r.left)),y:Math.max(0,Math.min(r.height,e.clientY-r.top))}}
+function sigDown(e){if(!signatureCtx)return;e.preventDefault();try{signatureCanvas.setPointerCapture(e.pointerId)}catch(_){}const p=sigPoint(e);signatureDrawing=true;signatureHasInk=true;document.getElementById('signaturePadGuide').classList.add('hidden');signatureCtx.beginPath();signatureCtx.moveTo(p.x,p.y);signatureCtx.lineTo(p.x+.01,p.y+.01);signatureCtx.stroke()}
+function sigMove(e){if(!signatureDrawing||!signatureCtx)return;e.preventDefault();const es=typeof e.getCoalescedEvents==='function'?e.getCoalescedEvents():[e];for(const ev of es){const p=sigPoint(ev);signatureCtx.lineTo(p.x,p.y);signatureCtx.stroke();signatureCtx.beginPath();signatureCtx.moveTo(p.x,p.y)}}
+function sigUp(e){if(!signatureDrawing)return;e.preventDefault();signatureDrawing=false;try{signatureCanvas.releasePointerCapture(e.pointerId)}catch(_){}}
+function clearSignature(){if(!signatureCanvas||!signatureCtx)return;const r=signatureCanvas.getBoundingClientRect();signatureCtx.clearRect(0,0,r.width,r.height);signatureHasInk=false;document.getElementById('signaturePadGuide').classList.remove('hidden')}
+function openSignature(id){signatureInterventionId=id;signatureScrollY=window.scrollY||0;signatureOldOverflow=document.body.style.overflow;signatureOldPosition=document.body.style.position;signatureOldTop=document.body.style.top;document.body.classList.add('signature-lock');document.body.style.position='fixed';document.body.style.top='-'+signatureScrollY+'px';const o=document.getElementById('signatureOverlay');o.classList.add('open');o.setAttribute('aria-hidden','false');requestAnimationFrame(()=>requestAnimationFrame(prepareSignatureCanvas))}
+function closeSignature(){const o=document.getElementById('signatureOverlay');o.classList.remove('open');o.setAttribute('aria-hidden','true');signatureDrawing=false;document.body.classList.remove('signature-lock');document.body.style.overflow=signatureOldOverflow;document.body.style.position=signatureOldPosition;document.body.style.top=signatureOldTop;window.scrollTo(0,signatureScrollY)}
+function confirmSignature(){if(!signatureCanvas||!signatureHasInk){alert('Inserisci prima la firma del cliente.');return}const it=state.interventions.find(x=>x.id===signatureInterventionId);if(!it)return;it.signature=signatureCanvas.toDataURL('image/png');save();closeSignature();open(it.id)}
+document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('signaturePad');if(!c)return;c.addEventListener('pointerdown',sigDown,{passive:false});c.addEventListener('pointermove',sigMove,{passive:false});c.addEventListener('pointerup',sigUp,{passive:false});c.addEventListener('pointercancel',sigUp,{passive:false})});</script><div id="signatureOverlay" class="signature-overlay" aria-hidden="true"><div class="signature-sheet"><div class="signature-top"><button class="link-btn" type="button" onclick="closeSignature()">Annulla</button><strong>Firma cliente</strong><span style="width:64px"></span></div><div class="signature-hint">Firma con il dito nello spazio qui sotto</div><div id="signaturePadWrap" class="signature-pad-wrap"><canvas id="signaturePad"></canvas><div id="signaturePadGuide" class="signature-guide">Firma qui</div></div><div class="signature-actions"><button class="secondary" type="button" onclick="clearSignature()">Cancella</button><button class="primary" type="button" onclick="confirmSignature()">Conferma firma</button></div></div></div></body></html>
