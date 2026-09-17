@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a84ff">
+<title>Assistenza IT</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;background:#f2f2f7;color:#111}
+header{background:#fff;padding:calc(env(safe-area-inset-top) + 18px) 18px 14px;position:sticky;top:0;z-index:2;border-bottom:1px solid #ddd}
+h1{font-size:30px;margin:0}.tabs{display:flex;background:#fff;position:fixed;bottom:0;left:0;right:0;padding:8px 8px calc(env(safe-area-inset-bottom) + 6px);z-index:3;border-top:1px solid #ddd}
+.tabs button{flex:1;border:0;background:none;font-size:12px;color:#666}.tabs button.active{color:#087cff;font-weight:700}
+main{padding:18px 14px 100px}.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px #00000012}
+button.primary{width:100%;padding:15px;border:0;border-radius:14px;background:#087cff;color:white;font-size:17px;font-weight:700}
+button.secondary{padding:11px 14px;border:0;border-radius:12px;background:#e9e9ee;font-weight:600}
+input,textarea,select{width:100%;padding:12px;border:1px solid #d1d1d6;border-radius:11px;background:#fff;font-size:16px;margin:6px 0 12px}
+label{font-size:13px;color:#666}.row{display:flex;gap:10px}.row>*{flex:1}
+.item{padding:14px 0;border-bottom:1px solid #eee}.item:last-child{border:0}
+.badge{display:inline-block;padding:5px 9px;border-radius:20px;background:#e8f7e8;color:#16821f;font-size:12px;font-weight:700}
+.muted{color:#777}.danger{color:#d00}.hidden{display:none}.timer{font-size:34px;font-weight:800;text-align:center;padding:15px}
+</style>
+</head>
+<body>
+<header><h1>Assistenza IT</h1></header>
+<main id="app"></main>
+<nav class="tabs">
+<button data-tab="home" class="active">⌂<br>Home</button>
+<button data-tab="clients">👥<br>Clienti</button>
+<button data-tab="interventions">🔧<br>Interventi</button>
+</nav>
+<script>
+const KEY='assistenza_it_v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'{"clients":[],"interventions":[]}');
+let tab='home', currentId=null;
+const save=()=>localStorage.setItem(KEY,JSON.stringify(data));
+const esc=s=>(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+const client=id=>data.clients.find(x=>x.id===id);
+const fmtDate=d=>new Date(d).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+const fmtTime=d=>new Date(d).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+function duration(i){if(!i.start)return 0; return ((i.end?new Date(i.end):new Date())-new Date(i.start))/1000}
+function dur(s){let m=Math.floor(s/60),h=Math.floor(m/60);m%=60;return h+'h '+String(m).padStart(2,'0')+'m'}
+function render(){
+ let a=document.getElementById('app');
+ if(tab==='home') home(a); if(tab==='clients') clients(a); if(tab==='interventions') interventions(a);
+ document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+}
+function home(a){
+ let running=data.interventions.find(i=>i.start&&!i.end);
+ a.innerHTML=`<div class="card">${running?`
+ <span class="badge">● INTERVENTO IN CORSO</span>
+ <h2>${esc(client(running.clientId)?.company||client(running.clientId)?.name||'Cliente')}</h2>
+ <div class="timer" id="timer">${dur(duration(running))}</div>
+ <button class="primary" onclick="openIntervention('${running.id}')">Apri intervento</button>`:`
+ <h2>Pronto per un nuovo intervento?</h2>
+ <p class="muted">Seleziona un cliente e registra automaticamente l'orario di inizio.</p>
+ <button class="primary" onclick="newIntervention()">▶️ Nuovo intervento</button>`}</div>
+ <div class="row"><div class="card"><b>${data.clients.length}</b><br><span class="muted">Clienti</span></div><div class="card"><b>${data.interventions.length}</b><br><span class="muted">Interventi</span></div></div>`;
+ if(running)setInterval(()=>{let e=document.getElementById('timer');if(e)e.textContent=dur(duration(running))},1000);
+}
+function clients(a){
+ a.innerHTML=`<div class="card"><button class="primary" onclick="newClient()">＋ Nuovo cliente</button></div>
+ <div class="card">${data.clients.length?data.clients.map(c=>`<div class="item" onclick="clientDetail('${c.id}')"><b>${esc(c.company||c.name)}</b>${c.company?`<br><span class="muted">${esc(c.name)}</span>`:''}<br><span class="muted">${esc(c.phone)}</span></div>`).join(''):'<p class="muted">Nessun cliente.</p>'}</div>`;
+}
+function newClient(){
+ document.getElementById('app').innerHTML=`<div class="card"><h2>Nuovo cliente</h2>
+ <label>Nome / Referente</label><input id="name"><label>Azienda</label><input id="company"><label>Telefono</label><input id="phone" type="tel"><label>Email</label><input id="email" type="email"><label>Indirizzo</label><input id="address">
+ <div class="row"><button class="secondary" onclick="render()">Annulla</button><button class="primary" onclick="saveClient()">Salva</button></div></div>`;
+}
+function saveClient(){
+ let c={id:crypto.randomUUID(),name:name.value.trim(),company:company.value.trim(),phone:phone.value,email:email.value,address:address.value};
+ if(!c.name)return alert('Inserisci il nome del cliente');data.clients.push(c);save();render();
+}
+function clientDetail(id){
+ let c=client(id), hist=data.interventions.filter(i=>i.clientId===id);
+ document.getElementById('app').innerHTML=`<div class="card"><h2>${esc(c.company||c.name)}</h2>${c.company?`<p>${esc(c.name)}</p>`:''}<p>${esc(c.phone)}<br>${esc(c.email)}<br>${esc(c.address)}</p><button class="primary" onclick="newIntervention('${id}')">＋ Nuovo intervento</button></div>
+ <div class="card"><h3>Storico</h3>${hist.length?hist.map(i=>`<div class="item" onclick="openIntervention('${i.id}')">${fmtDate(i.date)} — ${esc(i.problem||'Intervento tecnico')}<br><span class="muted">${i.end?dur(duration(i)):'In corso'}</span></div>`).join(''):'<p class="muted">Nessun intervento.</p>'}</div>`;
+}
+function newIntervention(pre){
+ if(!data.clients.length){alert('Prima crea almeno un cliente.');tab='clients';render();return}
+ document.getElementById('app').innerHTML=`<div class="card"><h2>Nuovo intervento</h2><label>Cliente</label><select id="sel">${data.clients.map(c=>`<option value="${c.id}" ${c.id===pre?'selected':''}>${esc(c.company||c.name)}</option>`).join('')}</select>
+ <label>Problema</label><textarea id="problem" rows="3"></textarea><label>Note iniziali</label><textarea id="notes" rows="3"></textarea>
+ <button class="primary" onclick="createIntervention()">Crea intervento</button></div>`;
+}
+function createIntervention(){
+ let i={id:crypto.randomUUID(),clientId:sel.value,date:new Date().toISOString(),start:null,end:null,problem:problem.value,workDone:'',materials:'',notes:notes.value};
+ data.interventions.unshift(i);save();openIntervention(i.id);
+}
+function openIntervention(id){
+ currentId=id;let i=data.interventions.find(x=>x.id===id),c=client(i.clientId);
+ document.getElementById('app').innerHTML=`<div class="card"><span class="${i.start&&!i.end?'badge':''}">${i.start&&!i.end?'● IN CORSO':'INTERVENTO'}</span><h2>${esc(c?.company||c?.name||'Cliente')}</h2><p>${fmtDate(i.date)} · ${i.start?fmtTime(i.start):'non iniziato'}</p>
+ ${i.start?`<p><b>Inizio:</b> ${fmtTime(i.start)} ${i.end?`<br><b>Fine:</b> ${fmtTime(i.end)}<br><b>Durata:</b> ${dur(duration(i))}`:''}</p>`:''}
+ ${!i.start?'<button class="primary" onclick="startIntervention()">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div class="timer" id="detailTimer">'+dur(duration(i))+'</div><button class="primary" onclick="endIntervention()">⏹️ TERMINA INTERVENTO</button>':'')}
+ </div>
+ <div class="card"><label>Problema</label><textarea id="editProblem" rows="3">${esc(i.problem)}</textarea><label>Attività eseguite</label><textarea id="workDone" rows="4">${esc(i.workDone)}</textarea><label>Materiali</label><textarea id="materials" rows="3">${esc(i.materials)}</textarea><label>Note</label><textarea id="editNotes" rows="3">${esc(i.notes)}</textarea><button class="secondary" onclick="saveIntervention()">Salva modifiche</button></div>
+ ${i.end?`<div class="card"><button class="primary" onclick="shareReport()">Condividi rapporto</button></div>`:''}`;
+ if(i.start&&!i.end)setInterval(()=>{let e=document.getElementById('detailTimer');if(e)e.textContent=dur(duration(i))},1000);
+}
+function startIntervention(){let i=data.interventions.find(x=>x.id===currentId);if(data.interventions.some(x=>x.start&&!x.end)){alert('C'è già un intervento in corso.');return}i.start=new Date().toISOString();save();openIntervention(i.id)}
+function endIntervention(){let i=data.interventions.find(x=>x.id===currentId);i.end=new Date().toISOString();save();openIntervention(i.id)}
+function saveIntervention(){let i=data.interventions.find(x=>x.id===currentId);i.problem=editProblem.value;i.workDone=workDone.value;i.materials=materials.value;i.notes=editNotes.value;save();alert('Salvato');}
+function report(i){let c=client(i.clientId);return `RAPPORTO DI INTERVENTO\n\nCliente: ${c?.company||c?.name||''}\nData: ${fmtDate(i.date)}\nInizio: ${i.start?fmtTime(i.start):'-'}\nFine: ${i.end?fmtTime(i.end):'-'}\nDurata: ${i.end?dur(duration(i)):'-'}\n\nPROBLEMA\n${i.problem}\n\nATTIVITÀ ESEGUITE\n${i.workDone}\n\nMATERIALI\n${i.materials}\n\nNOTE\n${i.notes}`;}
+async function shareReport(){let i=data.interventions.find(x=>x.id===currentId);let text=report(i);if(navigator.share){await navigator.share({title:'Rapporto di intervento',text})}else{await navigator.clipboard.writeText(text);alert('Rapporto copiato negli appunti.')}}
+function interventions(a){a.innerHTML=`<div class="card">${data.interventions.length?data.interventions.map(i=>`<div class="item" onclick="openIntervention('${i.id}')"><b>${esc(client(i.clientId)?.company||client(i.clientId)?.name||'Cliente')}</b><br>${fmtDate(i.date)} · ${i.end?dur(duration(i)):'In corso'}</div>`).join(''):'<p class="muted">Nessun intervento.</p>'}</div>`}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
+render();
+</script>
+</body>
+</html>
