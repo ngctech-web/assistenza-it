@@ -11,7 +11,7 @@ input,textarea,select{width:100%;font:inherit;font-size:16px;padding:12px;border
 .item{padding:14px 4px;border-bottom:1px solid #eee}.item:last-child{border:0}.item button{border:0;background:transparent;text-align:left;width:100%;padding:0}.muted{color:#6e6e73}
 .badge{display:inline-block;padding:5px 9px;border-radius:20px;background:#e5f7e8;color:#16821f;font-size:12px;font-weight:700}.timer{text-align:center;font-size:38px;font-weight:800;padding:15px 0}
 .empty{text-align:center;color:#777;padding:25px}.tabs{position:fixed;bottom:0;left:0;right:0;z-index:4;display:flex;background:#fff;border-top:1px solid #ddd;padding:7px 7px calc(7px + env(safe-area-inset-bottom))}
-.tabs button{flex:1;border:0;background:none;color:#666;padding:5px;font-size:12px}.tabs button.active{color:#007aff;font-weight:700}.stat{font-size:28px;font-weight:800}
+.tabs button{flex:1;border:0;background:none;color:#666;padding:5px;font-size:12px}.tabs button.active{color:#007aff;font-weight:700}.stat{font-size:28px;font-weight:800}.meta{font-size:13px;color:#6e6e73}.status{display:inline-block;padding:5px 9px;border-radius:20px;background:#e5e5ea;font-size:12px;font-weight:700}.status.running{background:#e5f7e8;color:#16821f}.status.done{background:#e8eefc;color:#2456a6}
 </style></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
@@ -28,6 +28,16 @@ function t(x){return new Date(x).toLocaleTimeString('it-IT',{hour:'2-digit',minu
 function sec(i){return i.start?Math.max(0,(i.end?Date.parse(i.end):Date.now())-Date.parse(i.start))/1000:0}
 function dur(s){let m=Math.floor(s/60),h=Math.floor(m/60);return h+'h '+String(m%60).padStart(2,'0')+'m'}
 function running(){return state.interventions.find(i=>i.start&&!i.end)}
+function interventionNumber(i){
+  if(!i.number){
+    const years=new Date(i.date||Date.now()).getFullYear();
+    const nums=state.interventions.map(x=>x.number).filter(Boolean).map(x=>parseInt(String(x).split('-').pop(),10)).filter(Number.isFinite);
+    const n=(nums.length?Math.max(...nums):0)+1;
+    i.number='INT-'+years+'-'+String(n).padStart(4,'0'); save();
+  }
+  return i.number;
+}
+function status(i){return i.end?'Completato':(i.start?'In corso':'Da iniziare')}
 function showTab(x){tab=x;current=null;stop();render()}
 function render(){['Home','Clients','Interventions'].forEach(x=>document.getElementById('tab'+x).classList.toggle('active',tab===x.toLowerCase()));if(tab==='home')home();else if(tab==='clients')clients();else interventions()}
 function home(){const r=running(),a=document.getElementById('app');a.innerHTML='<div class="card">'+(r?'<span class="badge">● INTERVENTO IN CORSO</span><h2>'+esc(cname(r.clientId))+'</h2><div class="timer" id="timer">'+dur(sec(r))+'</div><button class="primary" id="open">Apri intervento</button>':'<h2>Nuovo intervento</h2><p class="muted">Registra automaticamente inizio, fine e durata dell’assistenza.</p><button class="primary" id="new">▶️ Nuovo intervento</button>')+'</div><div class="row"><div class="card"><div class="stat">'+state.clients.length+'</div><span class="muted">Clienti</span></div><div class="card"><div class="stat">'+state.interventions.length+'</div><span class="muted">Interventi</span></div></div>';if(r){document.getElementById('open').onclick=()=>open(r.id);startTimer(r,'timer')}else document.getElementById('new').onclick=()=>newIntervention()}
@@ -56,26 +66,51 @@ function saveClient(){
  // Mostra subito il cliente appena creato.
  clientDetail(client.id);
 }
-function clientDetail(cid){const c=find(state.clients,cid),h=state.interventions.filter(i=>i.clientId===cid);document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><button class="primary" id="newc">＋ Nuovo intervento</button></div><div class="card"><h3>Storico interventi</h3>'+(h.length?h.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+d(i.date)+'</b><br>'+esc(i.problem||'Intervento tecnico')+'<br><span class="muted">'+(i.end?dur(sec(i)):'In corso')+'</span></button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';newc.onclick=()=>newIntervention(cid);document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))}
+function clientDetail(cid){const c=find(state.clients,cid),h=state.interventions.filter(i=>i.clientId===cid);document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><button class="primary" id="newc">＋ Nuovo intervento</button></div><div class="card"><h3>Storico interventi</h3>'+(h.length?h.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+esc(interventionNumber(i))+'</b> · '+d(i.date)+'<br>'+esc(i.problem||'Intervento tecnico')+'<br><span class="muted">'+(i.end?dur(sec(i)):'In corso')+'</span></button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';newc.onclick=()=>newIntervention(cid);document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))}
 function newIntervention(pre){
  if(!state.clients.length){alert('Prima crea almeno un cliente.');showTab('clients');return}
  document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo intervento</h2><form id="interventionForm"><label>Cliente</label><select id="clientSelect">'+state.clients.map(c=>'<option value="'+c.id+'" '+(c.id===pre?'selected':'')+'>'+esc(c.company||c.name)+'</option>').join('')+'</select><label>Problema</label><textarea id="problemInput" rows="3" placeholder="Descrizione del problema"></textarea><label>Note iniziali</label><textarea id="notesInput" rows="3"></textarea><button type="submit" class="primary">Crea intervento</button></form></div>';
  document.getElementById('interventionForm').addEventListener('submit',function(event){
    event.preventDefault();
    if(running()){alert('C’è già un intervento in corso.');return}
-   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),start:null,end:null,problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
+   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),number:'',start:null,end:null,problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
    state.interventions.unshift(i);save();open(i.id);
  });
 }
-function open(iid){current=iid;stop();const i=find(state.interventions,iid);if(!i)return;const a=document.getElementById('app');a.innerHTML='<div class="card">'+(i.start&&!i.end?'<span class="badge">● IN CORSO</span>':'<span class="muted">INTERVENTO</span>')+'<h2>'+esc(cname(i.clientId))+'</h2><p>'+d(i.date)+'</p>'+(i.start?'<p><b>Inizio:</b> '+t(i.start)+(i.end?'<br><b>Fine:</b> '+t(i.end)+'<br><b>Durata:</b> '+dur(sec(i)):'')+'</p>':'')+(!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div class="timer" id="dt">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':''))+'</div><div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+(i.end?'<div class="card"><button class="primary" id="share">Condividi rapporto</button></div>':'');if(document.getElementById('start'))start.onclick=startInt;if(document.getElementById('end'))end.onclick=endInt;sv.onclick=saveInt;if(document.getElementById('share'))share.onclick=shareReport;if(i.start&&!i.end)startTimer(i,'dt')}
+function open(iid){
+ current=iid;stop();
+ const i=find(state.interventions,iid);if(!i)return;
+ const num=interventionNumber(i),st=status(i);
+ const a=document.getElementById('app');
+ a.innerHTML='<div class="card">'+
+ '<div class="row" style="align-items:center"><div><span class="meta">'+esc(num)+'</span></div><div style="text-align:right"><span class="status '+(i.start&&!i.end?'running':(i.end?'done':''))+'">'+esc(st)+'</span></div></div>'+
+ '<h2>'+esc(cname(i.clientId))+'</h2><p>'+d(i.date)+'</p>'+
+ (i.start?'<p><b>Inizio:</b> '+t(i.start)+(i.end?'<br><b>Fine:</b> '+t(i.end)+'<br><b>Durata:</b> '+dur(sec(i)):'')+'</p>':'')+
+ (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':''))+
+ '</div><div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
+ (i.end?'<div class="card"><button class="primary" id="share">Condividi rapporto</button></div>':'');
+ const s=document.getElementById('start'),e=document.getElementById('end');
+ if(s)s.onclick=startInt;if(e)e.onclick=endInt;
+ document.getElementById('sv').onclick=saveInt;
+ const sh=document.getElementById('share');if(sh)sh.onclick=shareReport;
+ if(i.start&&!i.end)startTimer(i,'dt');
+}
 function fields(i){i.problem=ep.value.trim();i.workDone=wd.value.trim();i.materials=ma.value.trim();i.notes=en.value.trim()}
 function startInt(){const i=find(state.interventions,current);if(running()){alert('C’è già un intervento in corso.');return}fields(i);i.start=new Date().toISOString();save();open(i.id)}
 function endInt(){const i=find(state.interventions,current);fields(i);i.end=new Date().toISOString();save();open(i.id)}
 function saveInt(){const i=find(state.interventions,current);fields(i);save();alert('Modifiche salvate.')}
 function startTimer(i,eid){stop();const e=document.getElementById(eid);if(!e)return;const f=()=>e.textContent=dur(sec(i));f();timer=setInterval(f,1000)}
 function stop(){if(timer){clearInterval(timer);timer=null}}
-function interventions(){const a=document.getElementById('app');a.innerHTML='<div class="card">'+(state.interventions.length?state.interventions.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+esc(cname(i.clientId))+'</b><br>'+d(i.date)+' · '+(i.end?dur(sec(i)):'<span class="badge">In corso</span>')+'</button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))}
-function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
+function interventions(){
+ const a=document.getElementById('app');
+ const items=state.interventions.map(i=>{
+   const num=interventionNumber(i),st=status(i);
+   return '<div class="item"><button data-i="'+i.id+'"><b>'+esc(num)+'</b> · '+esc(cname(i.clientId))+'<br><span class="muted">'+d(i.date)+' · '+esc(st)+'</span><br><span class="muted">'+esc(i.problem||'Intervento tecnico')+'</span></button></div>';
+ }).join('');
+ a.innerHTML='<div class="card">'+(state.interventions.length?items:'<div class="empty">Nessun intervento.</div>')+'</div>';
+ document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i));
+}
+function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
 function shareReport(){const text=report(find(state.interventions,current));if(navigator.share)navigator.share({title:'Rapporto di intervento',text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Rapporto copiato.'));else alert(text)}
 load();render();
 </script></body></html>
