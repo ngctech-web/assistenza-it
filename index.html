@@ -12,6 +12,16 @@ input,textarea,select{width:100%;font:inherit;font-size:16px;padding:12px;border
 .badge{display:inline-block;padding:5px 9px;border-radius:20px;background:#e5f7e8;color:#16821f;font-size:12px;font-weight:700}.timer{text-align:center;font-size:38px;font-weight:800;padding:15px 0}
 .empty{text-align:center;color:#777;padding:25px}.tabs{position:fixed;bottom:0;left:0;right:0;z-index:4;display:flex;background:#fff;border-top:1px solid #ddd;padding:7px 7px calc(7px + env(safe-area-inset-bottom))}
 .tabs button{flex:1;border:0;background:none;color:#666;padding:5px;font-size:12px}.tabs button.active{color:#007aff;font-weight:700}.stat{font-size:28px;font-weight:800}.meta{font-size:13px;color:#6e6e73}.status{display:inline-block;padding:5px 9px;border-radius:20px;background:#e5e5ea;font-size:12px;font-weight:700}.status.running{background:#e5f7e8;color:#16821f}.status.done{background:#e8eefc;color:#2456a6}
+
+.signature{border:2px dashed #bbb;border-radius:12px;background:#fff;width:100%;height:180px;touch-action:none}
+.sig-actions{display:flex;gap:8px;margin-top:8px}.sig-actions button{flex:1}
+.photo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.photo-grid img{width:100%;aspect-ratio:1;border-radius:10px;object-fit:cover}
+.pdf-btn{background:#34c759}.print-only{display:none}
+@media print{
+ body{background:#fff}header,.tabs,.no-print{display:none!important}main{padding:0}
+ .card{box-shadow:none;border:0;border-radius:0;page-break-inside:avoid}
+ .print-only{display:block}
+}
 </style></head><body><header><h1>Assistenza IT</h1></header><main id="app"></main>
 <nav class="tabs"><button id="tabHome" onclick="showTab('home')">⌂<br>Home</button><button id="tabClients" onclick="showTab('clients')">👥<br>Clienti</button><button id="tabInterventions" onclick="showTab('interventions')">🔧<br>Interventi</button></nav>
 <script>
@@ -19,6 +29,8 @@ input,textarea,select{width:100%;font:inherit;font-size:16px;padding:12px;border
 const KEY='assistenza_it_v1_1'; let state={clients:[],interventions:[]}, tab='home', current=null, timer=null;
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&Array.isArray(x.clients)&&Array.isArray(x.interventions))state=x}catch(e){}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){alert('Impossibile salvare i dati.')} }
+function dataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+
 function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function find(a,x){return a.find(v=>v.id===x)}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
@@ -73,25 +85,51 @@ function newIntervention(pre){
  document.getElementById('interventionForm').addEventListener('submit',function(event){
    event.preventDefault();
    if(running()){alert('C’è già un intervento in corso.');return}
-   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),number:'',start:null,end:null,problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
+   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),number:'',start:null,end:null,signature:'',photos:[],problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
    state.interventions.unshift(i);save();open(i.id);
  });
 }
 function open(iid){
  current=iid;stop();
  const i=find(state.interventions,iid);if(!i)return;
- const num=interventionNumber(i),st=status(i);
+ if(!i.number)interventionNumber(i);
  const a=document.getElementById('app');
+ const photos=i.photos||[];
  a.innerHTML='<div class="card">'+
- '<div class="row" style="align-items:center"><div><span class="meta">'+esc(num)+'</span></div><div style="text-align:right"><span class="status '+(i.start&&!i.end?'running':(i.end?'done':''))+'">'+esc(st)+'</span></div></div>'+
+ '<div class="row" style="align-items:center"><div><span class="meta">'+esc(interventionNumber(i))+'</span></div><div style="text-align:right"><span class="status '+(i.start&&!i.end?'running':(i.end?'done':''))+'">'+esc(status(i))+'</span></div></div>'+
  '<h2>'+esc(cname(i.clientId))+'</h2><p>'+d(i.date)+'</p>'+
  (i.start?'<p><b>Inizio:</b> '+t(i.start)+(i.end?'<br><b>Fine:</b> '+t(i.end)+'<br><b>Durata:</b> '+dur(sec(i)):'')+'</p>':'')+
- (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':''))+
- '</div><div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
- (i.end?'<div class="card"><button class="primary" id="share">Condividi rapporto</button></div>':'');
+ (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':'') )+
+ '</div>'+
+ '<div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
+ '<div class="card"><h3>📸 Foto intervento</h3><input id="photoInput" type="file" accept="image/*" multiple capture="environment"><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
+ '<div class="card"><h3>✍️ Firma cliente</h3><canvas id="signature" class="signature"></canvas><div class="sig-actions"><button class="secondary" id="clearSig">Cancella firma</button><button class="secondary" id="saveSig">Salva firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
+ (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'');
  const s=document.getElementById('start'),e=document.getElementById('end');
  if(s)s.onclick=startInt;if(e)e.onclick=endInt;
  document.getElementById('sv').onclick=saveInt;
+ document.getElementById('photoInput').addEventListener('change',async ev=>{
+   const files=[...ev.target.files];
+   if(!i.photos)i.photos=[];
+   for(const f of files){if(f.type.startsWith('image/'))i.photos.push(await dataURL(f))}
+   save();open(i.id);
+ });
+ const canvas=document.getElementById('signature'),ctx=canvas.getContext('2d');
+ function resizeCanvas(){
+   const ratio=Math.max(window.devicePixelRatio||1,1),r=canvas.getBoundingClientRect();
+   const old=canvas.toDataURL();canvas.width=r.width*ratio;canvas.height=r.height*ratio;ctx.scale(ratio,ratio);ctx.lineWidth=2;ctx.lineCap='round';
+   if(i.signature){const im=new Image();im.onload=()=>ctx.drawImage(im,0,0,r.width,r.height);im.src=i.signature}
+ }
+ resizeCanvas();
+ let drawing=false;
+ const point=e=>{const r=canvas.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}};
+ canvas.addEventListener('pointerdown',e=>{drawing=true;canvas.setPointerCapture(e.pointerId);const p=point(e);ctx.beginPath();ctx.moveTo(p.x,p.y)});
+ canvas.addEventListener('pointermove',e=>{if(!drawing)return;const p=point(e);ctx.lineTo(p.x,p.y);ctx.stroke()});
+ canvas.addEventListener('pointerup',()=>drawing=false);
+ canvas.addEventListener('pointercancel',()=>drawing=false);
+ document.getElementById('clearSig').onclick=()=>{ctx.clearRect(0,0,canvas.clientWidth,canvas.clientHeight);i.signature='';save();document.getElementById('sigMsg').textContent='Firma cancellata.'};
+ document.getElementById('saveSig').onclick=()=>{i.signature=canvas.toDataURL('image/png');save();document.getElementById('sigMsg').textContent='Firma salvata.'};
+ const pdf=document.getElementById('pdf');if(pdf)pdf.onclick=()=>window.print();
  const sh=document.getElementById('share');if(sh)sh.onclick=shareReport;
  if(i.start&&!i.end)startTimer(i,'dt');
 }
@@ -110,7 +148,7 @@ function interventions(){
  a.innerHTML='<div class="card">'+(state.interventions.length?items:'<div class="empty">Nessun intervento.</div>')+'</div>';
  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i));
 }
-function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
+function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nFirma cliente: '+(i.signature?'Acquisita':'Non acquisita')+'\nFoto allegate: '+((i.photos||[]).length)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
 function shareReport(){const text=report(find(state.interventions,current));if(navigator.share)navigator.share({title:'Rapporto di intervento',text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Rapporto copiato.'));else alert(text)}
 load();render();
 </script></body></html>
