@@ -94,8 +94,41 @@ body.signature-lock{overflow:hidden!important;position:fixed;width:100%}
 'use strict';
 const KEY='assistenza_it_v1_1'; let state={clients:[],interventions:[]}, tab='home', current=null, timer=null;
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&Array.isArray(x.clients)&&Array.isArray(x.interventions))state=x}catch(e){}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){alert('Impossibile salvare i dati.')} }
-function dataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+function save(){
+ try{
+   localStorage.setItem(KEY,JSON.stringify(state));
+   return true;
+ }catch(e){
+   console.error('Salvataggio localStorage fallito:',e);
+   alert('Impossibile salvare i dati. La memoria del browser è piena. Le foto vengono ora ridotte automaticamente.');
+   return false;
+ }
+}
+function dataURL(file){
+ return new Promise((resolve,reject)=>{
+   if(!file||!file.type.startsWith('image/')){reject(new Error('File non immagine'));return}
+   const r=new FileReader();
+   r.onerror=reject;
+   r.onload=()=>{
+     const img=new Image();
+     img.onerror=reject;
+     img.onload=()=>{
+       try{
+         const max=1600;
+         const scale=Math.min(1,max/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
+         const w=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
+         const h=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+         const c=document.createElement('canvas');c.width=w;c.height=h;
+         const ctx=c.getContext('2d',{alpha:false});
+         ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
+         resolve(c.toDataURL('image/jpeg',0.72));
+       }catch(e){reject(e)}
+     };
+     img.src=r.result;
+   };
+   r.readAsDataURL(file);
+ })
+}
 
 function id(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function find(a,x){return a.find(v=>v.id===x)}
@@ -181,7 +214,7 @@ function open(iid){
  (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':'') )+
  '</div>'+
  '<div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
- '<div class="card"><h3>📸 Foto intervento</h3><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
+ '<div class="card"><h3>📸 Foto intervento</h3><p class="muted" style="font-size:12px;margin-top:-5px">Le foto vengono ottimizzate automaticamente per essere salvate anche su iPhone.</p><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
  '<div class="card"><h3>✍️ Firma cliente</h3><button type="button" class="secondary" id="openSig">✍️ Firma cliente</button><div id="signaturePreview" class="signature-preview" style="'+(i.signature?'display:block':'display:none')+'">'+(i.signature?'<img src="'+i.signature+'" alt="Firma cliente">':'')+'<button type="button" class="link-btn" id="editSig">Modifica firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
  (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'');
  const s=document.getElementById('start'),e=document.getElementById('end');
@@ -190,8 +223,23 @@ function open(iid){
  async function addPhotos(fileList){
    const files=[...fileList];
    if(!i.photos)i.photos=[];
-   for(const f of files){if(f.type.startsWith('image/'))i.photos.push(await dataURL(f))}
-   save();open(i.id);
+   const oldPhotos=[...i.photos];
+   try{
+     for(const f of files){
+       if(f.type.startsWith('image/')) i.photos.push(await dataURL(f));
+     }
+     if(!save()){
+       i.photos=oldPhotos;
+       open(i.id);
+       return;
+     }
+     open(i.id);
+   }catch(err){
+     console.error(err);
+     i.photos=oldPhotos;
+     alert('Non è stato possibile aggiungere la foto.');
+     open(i.id);
+   }
  }
  document.getElementById('galleryBtn').onclick=()=>document.getElementById('galleryInput').click();
  document.getElementById('cameraBtn').onclick=()=>document.getElementById('cameraInput').click();
@@ -349,7 +397,31 @@ function sigUp(e){if(!signatureDrawing)return;e.preventDefault();signatureDrawin
 function clearSignature(){if(!signatureCanvas||!signatureCtx)return;const r=signatureCanvas.getBoundingClientRect();signatureCtx.clearRect(0,0,r.width,r.height);signatureHasInk=false;document.getElementById('signaturePadGuide').classList.remove('hidden')}
 function openSignature(id){signatureInterventionId=id;signatureScrollY=window.scrollY||0;signatureOldOverflow=document.body.style.overflow;signatureOldPosition=document.body.style.position;signatureOldTop=document.body.style.top;document.body.classList.add('signature-lock');document.body.style.position='fixed';document.body.style.top='-'+signatureScrollY+'px';const o=document.getElementById('signatureOverlay');o.classList.add('open');o.setAttribute('aria-hidden','false');requestAnimationFrame(()=>requestAnimationFrame(prepareSignatureCanvas))}
 function closeSignature(){const o=document.getElementById('signatureOverlay');o.classList.remove('open');o.setAttribute('aria-hidden','true');signatureDrawing=false;document.body.classList.remove('signature-lock');document.body.style.overflow=signatureOldOverflow;document.body.style.position=signatureOldPosition;document.body.style.top=signatureOldTop;window.scrollTo(0,signatureScrollY)}
-function confirmSignature(){if(!signatureCanvas||!signatureHasInk){alert('Inserisci prima la firma del cliente.');return}const it=state.interventions.find(x=>x.id===signatureInterventionId);if(!it)return;it.signature=signatureCanvas.toDataURL('image/png');save();closeSignature();open(it.id)}
+function confirmSignature(){
+ if(!signatureCanvas||!signatureHasInk){alert('Inserisci prima la firma del cliente.');return}
+ const it=state.interventions.find(x=>x.id===signatureInterventionId);if(!it)return;
+ const oldSignature=it.signature||'';
+ try{
+   const r=signatureCanvas.getBoundingClientRect();
+   const maxW=1000,maxH=500;
+   const scale=Math.min(1,maxW/Math.max(1,r.width),maxH/Math.max(1,r.height));
+   const w=Math.max(1,Math.round(r.width*scale)),h=Math.max(1,Math.round(r.height*scale));
+   const c=document.createElement('canvas');c.width=w;c.height=h;
+   const ctx=c.getContext('2d',{alpha:false});
+   ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
+   ctx.drawImage(signatureCanvas,0,0,w,h);
+   it.signature=c.toDataURL('image/jpeg',0.82);
+   if(!save()){
+     it.signature=oldSignature;
+     return;
+   }
+   closeSignature();open(it.id);
+ }catch(err){
+   console.error(err);
+   it.signature=oldSignature;
+   alert('Non è stato possibile salvare la firma.');
+ }
+}
 document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementById('signaturePad');if(!c)return;c.addEventListener('pointerdown',sigDown,{passive:false});c.addEventListener('pointermove',sigMove,{passive:false});c.addEventListener('pointerup',sigUp,{passive:false});c.addEventListener('pointercancel',sigUp,{passive:false})});
 (function(){
   function v23Text(i){
