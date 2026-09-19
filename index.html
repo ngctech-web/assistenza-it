@@ -421,8 +421,8 @@ async function generatePDF(i){
    doc.setTextColor(20,20,20);y=52;
 
    // Summary box
-   ensure(38);
-   doc.setDrawColor(215,219,225);doc.roundedRect(margin,y-6,contentW,34,3,3,'S');
+   ensure(50);
+   doc.setDrawColor(215,219,225);doc.roundedRect(margin,y-6,contentW,46,3,3,'S');
    doc.setFont('helvetica','bold');doc.setFontSize(10);
    doc.text('CLIENTE',margin+5,y+1);
    doc.text('DATA',margin+105,y+1);
@@ -430,11 +430,19 @@ async function generatePDF(i){
    doc.text(c.company||c.name||'-',margin+5,y+8);
    doc.text(d(i.date),margin+105,y+8);
    if(c.name&&c.company){doc.setFontSize(9);doc.setTextColor(90,90,90);doc.text('Referente: '+c.name,margin+5,y+15);doc.setTextColor(20,20,20)}
+   doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+   doc.text('TECNICO',margin+5,y+20);
+   doc.text('TIPO INTERVENTO',margin+70,y+20);
+   doc.text('COSTO',margin+145,y+20);
+   doc.setFont('helvetica','normal');doc.setFontSize(9.5);
+   doc.text(i.technician||'-',margin+5,y+27);
+   doc.text(i.type||'-',margin+70,y+27);
+   doc.text(Number(i.cost)>0?'€ '+Number(i.cost).toFixed(2).replace('.',','):'-',margin+145,y+27);
    doc.setFontSize(9);doc.setTextColor(90,90,90);
-   doc.text('Inizio: '+(i.start?t(i.start):'-'),margin+5,y+23);
-   doc.text('Fine: '+(i.end?t(i.end):'-'),margin+55,y+23);
-   doc.text('Durata: '+(i.end?dur(sec(i)):'-'),margin+105,y+23);
-   doc.setTextColor(20,20,20);y+=39;
+   doc.text('Inizio: '+(i.start?t(i.start):'-'),margin+5,y+36);
+   doc.text('Fine: '+(i.end?t(i.end):'-'),margin+55,y+36);
+   doc.text('Durata: '+(i.end?dur(sec(i)):'-'),margin+105,y+36);
+   doc.setTextColor(20,20,20);y+=51;
 
    if(c.address||c.phone||c.email){
      ensure(18);doc.setFontSize(9);doc.setTextColor(90,90,90);
@@ -474,7 +482,7 @@ async function generatePDF(i){
    doc.save(filename);
  }catch(err){console.error(err);alert('Errore nella generazione del PDF. Riprova.')}
 }
-function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nFirma cliente: '+(i.signature?'Acquisita':'Non acquisita')+'\nFoto allegate: '+((i.photos||[]).length)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
+function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nFirma cliente: '+(i.signature?'Acquisita':'Non acquisita')+'\nFoto allegate: '+((i.photos||[]).length)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nTecnico: '+(i.technician||'-')+'\nTipo intervento: '+(i.type||'-')+'\nCosto: '+(Number(i.cost)>0?'€ '+Number(i.cost).toFixed(2).replace('.',','):'-')+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
 function shareReport(){const text=report(find(state.interventions,current));if(navigator.share)navigator.share({title:'Rapporto di intervento',text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Rapporto copiato.'));else alert(text)}
 load();render();
 let signatureCanvas=null,signatureCtx=null,signatureDrawing=false,signatureHasInk=false,signatureInterventionId=null,signatureScrollY=0,signatureOldOverflow='',signatureOldPosition='',signatureOldTop='';
