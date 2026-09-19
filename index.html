@@ -318,10 +318,21 @@ function open(iid){
  '<div class="card"><label>Tecnico</label><input id="tech" value="'+esc(i.technician||'')+'" placeholder="Nome tecnico"><label>Tipo intervento</label><select id="typeEdit"><option value="Assistenza tecnica">Assistenza tecnica</option><option value="Installazione">Installazione</option><option value="Manutenzione">Manutenzione</option><option value="Configurazione">Configurazione</option><option value="Riparazione">Riparazione</option><option value="Altro">Altro</option></select><label>Costo (€)</label><input id="costEdit" type="number" inputmode="decimal" min="0" step="0.01" value="'+(Number(i.cost)||0)+'" placeholder="0,00"><label>Indirizzo intervento</label><input id="addressEdit" autocomplete="street-address" value="'+esc(i.address||'')+'" placeholder="Via, numero, città"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
  '<div class="card"><h3>📸 Foto intervento</h3><p class="muted" style="font-size:12px;margin-top:-5px">Le foto vengono ottimizzate automaticamente per essere salvate anche su iPhone.</p><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
  '<div class="card"><h3>✍️ Firma cliente</h3><button type="button" class="secondary" id="openSig">✍️ Firma cliente</button><div id="signaturePreview" class="signature-preview" style="'+(i.signature?'display:block':'display:none')+'">'+(i.signature?'<img src="'+i.signature+'" alt="Firma cliente">':'')+'<button type="button" class="link-btn" id="editSig">Modifica firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
- (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'');
+ (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'')+
+ '<div class="card no-print"><button class="secondary" id="deleteIntervention" style="width:100%;color:#b42318;border-color:#f0b5b0">🗑️ Elimina intervento</button></div>';
  const typeEdit=document.getElementById('typeEdit');if(typeEdit)typeEdit.value=i.type||'Assistenza tecnica';const s=document.getElementById('start'),e=document.getElementById('end');
  if(s)s.onclick=startInt;if(e)e.onclick=endInt;
  document.getElementById('sv').onclick=saveInt;
+ const deleteIntervention=document.getElementById('deleteIntervention');
+ if(deleteIntervention) deleteIntervention.onclick=()=>{
+   if(i.start&&!i.end){alert('Non puoi eliminare un intervento in corso. Termina prima l’intervento.');return}
+   if(!confirm('Eliminare definitivamente questo intervento? Verranno eliminate anche le foto e la firma associate.'))return;
+   const idx=state.interventions.findIndex(x=>x.id===i.id);
+   if(idx<0)return;
+   state.interventions.splice(idx,1);
+   save();
+   clientDetail(i.clientId);
+ };
  async function addPhotos(fileList){
    const files=[...fileList];
    if(!i.photos)i.photos=[];
