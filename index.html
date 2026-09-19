@@ -288,23 +288,19 @@ function interventions(){
  '</div></div></details></div>';
  a.innerHTML='<div class="card">'+(state.interventions.length?items:'<div class="empty">Nessun intervento.</div>')+'</div>'+backup;
  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i));
- const ex=document.getElementById('v28Export'); if(ex) ex.onclick=v28Export;
- const ib=document.getElementById('v28ImportBtn'); if(ib) ib.onclick=()=>document.getElementById('v28Import')?.click();
- const fi=document.getElementById('v28Import'); if(fi) fi.onchange=e=>{const file=e.target.files&&e.target.files[0]; if(file)v28Import(file); e.target.value='';};
-}
-
-async function generatePDF(i){
- try{
-   if(!window.jspdf||!window.jspdf.jsPDF){alert('Libreria PDF non disponibile. Controlla la connessione internet e riprova.');return}
-   const {jsPDF}=window.jspdf,doc=new jsPDF({unit:'mm',format:'a4'});
-   const c=find(state.clients,i.clientId)||{}, pageW=210, pageH=297, margin=16, contentW=178;
-   let y=27, page=1;
-
-   function footer(){
-     doc.setFontSize(7.5);doc.setTextColor(105,110,120);
-     doc.text('NGC-Tech · Hardware & Software · Assistenza tecnica',margin,289);
-     doc.text('Pagina '+page,pageW-margin,289,{align:'right'});
-     doc.setTextColor(20,20,20);
+ document.addEventListener('click',function(e){
+  const ex=e.target.closest('#v28Export');
+  if(ex){ e.preventDefault(); v28Export(); return; }
+  const im=e.target.closest('#v28ImportBtn');
+  if(im){ e.preventDefault(); const inp=document.getElementById('v28Import'); if(inp) inp.click(); return; }
+});
+document.addEventListener('change',function(e){
+  if(e.target && e.target.id==='v28Import'){
+    const file=e.target.files && e.target.files[0];
+    if(file) v28Import(file);
+    e.target.value='';
+  }
+});
    }
    function header(){
      doc.setFillColor(255,255,255);doc.rect(0,0,pageW,18,'F');
