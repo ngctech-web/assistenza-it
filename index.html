@@ -462,9 +462,22 @@ async function generatePDF(i){
 
    if(i.photos&&i.photos.length){
      ensure(25);box(margin,y,contentW,18,'FOTO INTERVENTO');y+=24;
-     for(const p of photoUrls.slice(0,8)){
-       if(y+62>278)newPage();
-       addImageFit(p,margin,278,82,58,'JPEG');
+     const cols=3, gap=5, cellW=(contentW-gap*(cols-1))/cols, cellH=43;
+     for(let idx=0;idx<photoUrls.length;idx+=cols){
+       const row=photoUrls.slice(idx,idx+cols);
+       if(y+cellH+7>278)newPage();
+       for(let col=0;col<row.length;col++){
+         const p=row[col], x=margin+col*(cellW+gap);
+         try{
+           const prop=doc.getImageProperties(p),ratio=prop.width/prop.height;
+           let w=cellW-4,h=w/ratio;
+           if(h>cellH-4){h=cellH-4;w=h*ratio}
+           const ox=x+(cellW-w)/2, oy=y+(cellH-h)/2;
+           doc.setDrawColor(...line);doc.setLineWidth(.3);doc.roundedRect(x,y,cellW,cellH,2,2,'S');
+           doc.addImage(p,'JPEG',ox,oy,w,h);
+         }catch(_){}
+       }
+       y+=cellH+7;
      }
    }
    if(signatureUrl){
