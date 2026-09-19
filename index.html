@@ -282,11 +282,11 @@ function clientDetail(cid){
 }
 function newIntervention(pre){
  if(!state.clients.length){alert('Prima crea almeno un cliente.');showTab('clients');return}
- document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo intervento</h2><form id="interventionForm"><label>Cliente</label><select id="clientSelect">'+state.clients.map(c=>'<option value="'+c.id+'" '+(c.id===pre?'selected':'')+'>'+esc(c.company||c.name)+'</option>').join('')+'</select><label>Problema</label><textarea id="problemInput" rows="3" placeholder="Descrizione del problema"></textarea><label>Note iniziali</label><textarea id="notesInput" rows="3"></textarea><button type="submit" class="primary">Crea intervento</button></form></div>';
+ document.getElementById('app').innerHTML='<div class="card"><h2>Nuovo intervento</h2><form id="interventionForm"><label>Cliente</label><select id="clientSelect">'+state.clients.map(c=>'<option value="'+c.id+'" '+(c.id===pre?'selected':'')+'>'+esc(c.company||c.name)+'</option>').join('')+'</select><label>Tecnico</label><input id="technicianInput" placeholder="Nome tecnico"><label>Problema</label><textarea id="problemInput" rows="3" placeholder="Descrizione del problema"></textarea><label>Note iniziali</label><textarea id="notesInput" rows="3"></textarea><button type="submit" class="primary">Crea intervento</button></form></div>';
  document.getElementById('interventionForm').addEventListener('submit',function(event){
    event.preventDefault();
    if(running()){alert('C’è già un intervento in corso.');return}
-   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),number:'',start:null,end:null,signature:'',photos:[],problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
+   const i={id:id(),clientId:document.getElementById('clientSelect').value,date:new Date().toISOString(),number:'',technician:document.getElementById('technicianInput').value.trim(),start:null,end:null,signature:'',photos:[],problem:document.getElementById('problemInput').value.trim(),workDone:'',materials:'',notes:document.getElementById('notesInput').value.trim()};
    state.interventions.unshift(i);save();open(i.id);
  });
 }
@@ -302,7 +302,7 @@ function open(iid){
  (i.start?'<p><b>Inizio:</b> '+t(i.start)+(i.end?'<br><b>Fine:</b> '+t(i.end)+'<br><b>Durata:</b> '+dur(sec(i)):'')+'</p>':'')+
  (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':'') )+
  '</div>'+
- '<div class="card"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
+ '<div class="card"><label>Tecnico</label><input id="tech" value="'+esc(i.technician||'')+'" placeholder="Nome tecnico"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
  '<div class="card"><h3>📸 Foto intervento</h3><p class="muted" style="font-size:12px;margin-top:-5px">Le foto vengono ottimizzate automaticamente per essere salvate anche su iPhone.</p><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
  '<div class="card"><h3>✍️ Firma cliente</h3><button type="button" class="secondary" id="openSig">✍️ Firma cliente</button><div id="signaturePreview" class="signature-preview" style="'+(i.signature?'display:block':'display:none')+'">'+(i.signature?'<img src="'+i.signature+'" alt="Firma cliente">':'')+'<button type="button" class="link-btn" id="editSig">Modifica firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
  (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'');
@@ -341,7 +341,7 @@ function open(iid){
  const sh=document.getElementById('share');if(sh)sh.onclick=shareReport;
  if(i.start&&!i.end)startTimer(i,'dt');
 }
-function fields(i){i.problem=ep.value.trim();i.workDone=wd.value.trim();i.materials=ma.value.trim();i.notes=en.value.trim()}
+function fields(i){i.technician=document.getElementById('tech')?.value.trim()||i.technician||'';i.problem=ep.value.trim();i.workDone=wd.value.trim();i.materials=ma.value.trim();i.notes=en.value.trim()}
 function startInt(){const i=find(state.interventions,current);if(running()){alert('C’è già un intervento in corso.');return}fields(i);i.start=new Date().toISOString();save();open(i.id)}
 function endInt(){const i=find(state.interventions,current);fields(i);i.end=new Date().toISOString();save();open(i.id)}
 function saveInt(){const i=find(state.interventions,current);fields(i);save();alert('Modifiche salvate.')}
@@ -351,7 +351,7 @@ function interventions(){
  const a=document.getElementById('app');
  const items=state.interventions.map(i=>{
    const num=interventionNumber(i),st=status(i);
-   return '<div class="item"><button data-i="'+i.id+'"><b>'+esc(num)+'</b> · '+esc(cname(i.clientId))+'<br><span class="muted">'+d(i.date)+' · '+esc(st)+'</span><br><span class="muted">'+esc(i.problem||'Intervento tecnico')+'</span></button></div>';
+   return '<div class="item"><button data-i="'+i.id+'"><b>'+esc(num)+'</b> · '+esc(cname(i.clientId))+'<br><span class="muted">'+d(i.date)+' · '+esc(st)+'</span>'+(i.technician?'<br><span class="muted">Tecnico: '+esc(i.technician)+'</span>':'')+'<br><span class="muted">'+esc(i.problem||'Intervento tecnico')+'</span></button></div>';
  }).join('');
  a.innerHTML='<div class="card">'+(state.interventions.length?items:'<div class="empty">Nessun intervento.</div>')+'</div>';
  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i));
