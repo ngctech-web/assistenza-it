@@ -277,13 +277,21 @@ function clientDetail(cid){
  const completedCost=h.filter(i=>i.end).reduce((sum,i)=>sum+(Number(i.cost)||0),0);
  const last=h[0];
  const lastLabel=last?(interventionNumber(last)+' · '+d(last.date)):'Nessun intervento';
- document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><button class="primary" id="newc">＋ Nuovo intervento</button></div>'+
+ document.getElementById('app').innerHTML='<div class="card"><h2>'+esc(c.company||c.name)+'</h2><p>'+[c.name!==c.company?c.name:'',c.phone,c.email,c.address].filter(Boolean).map(esc).join('<br>')+'</p><div class="row"><button class="primary" id="newc">＋ Nuovo intervento</button><button class="secondary" id="editClient">✏️ Modifica dati cliente</button></div></div>'+
  '<div class="row client-stats"><div class="card"><div class="stat">'+h.length+'</div><span class="muted">Interventi totali</span></div><div class="card"><div class="stat">'+completed+'</div><span class="muted">Completati</span></div><div class="card"><div class="stat">'+openCount+'</div><span class="muted">Aperti</span></div></div>'+
  '<div class="row client-stats"><div class="card"><div class="stat">€ '+totalCost.toFixed(2).replace('.',',')+'</div><span class="muted">Totale costi</span></div><div class="card"><div class="stat">€ '+completedCost.toFixed(2).replace('.',',')+'</div><span class="muted">Costi completati</span></div></div>'+
  '<div class="card"><h3>🕘 Ultimo intervento</h3><p><b>'+esc(lastLabel)+'</b>'+(last?'<br>'+esc(last.problem||'Intervento tecnico'):'')+'</p></div>'+
  '<div class="card"><h3>Storico interventi</h3>'+(h.length?h.map(i=>'<div class="item"><button data-i="'+i.id+'"><b>'+esc(interventionNumber(i))+'</b> · '+d(i.date)+'<br>'+esc(i.problem||'Intervento tecnico')+'<br><span class="muted">'+(i.end?dur(sec(i)):'In corso')+'</span></button></div>').join(''):'<div class="empty">Nessun intervento.</div>')+'</div>';
  newc.onclick=()=>newIntervention(cid);
+ document.getElementById('editClient').onclick=()=>editClient(cid);
  document.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>open(b.dataset.i))
+}
+function editClient(cid){
+ const c=find(state.clients,cid); if(!c)return;
+ document.getElementById('app').innerHTML='<div class="card"><h2>Modifica cliente</h2><form id="editClientForm"><label>Nome cliente</label><input id="editClientName" value="'+esc(c.name||'')+'" required><label>Azienda</label><input id="editClientCompany" value="'+esc(c.company||'')+'"><label>Telefono</label><input id="editClientPhone" type="tel" inputmode="tel" value="'+esc(c.phone||'')+'" placeholder="Numero di telefono"><label>Email</label><input id="editClientEmail" type="email" value="'+esc(c.email||'')+'" placeholder="email@esempio.it"><label>Indirizzo</label><input id="editClientAddress" autocomplete="street-address" value="'+esc(c.address||'')+'" placeholder="Via, numero, città"><div class="row"><button type="button" class="secondary" id="cancelEditClient">Annulla</button><button type="submit" class="primary">Salva modifiche</button></div></form></div>';
+ document.getElementById('cancelEditClient').onclick=()=>clientDetail(cid);
+ document.getElementById('editClientForm').onsubmit=function(e){e.preventDefault(); const name=document.getElementById('editClientName').value.trim(); if(!name){alert('Inserisci il nome del cliente.');return} c.name=name; c.company=document.getElementById('editClientCompany').value.trim(); c.phone=document.getElementById('editClientPhone').value.trim(); c.email=document.getElementById('editClientEmail').value.trim(); c.address=document.getElementById('editClientAddress').value.trim(); save(); clientDetail(cid); };
+ document.getElementById('editClientPhone').focus();
 }
 function newIntervention(pre){
  if(!state.clients.length){alert('Prima crea almeno un cliente.');showTab('clients');return}
