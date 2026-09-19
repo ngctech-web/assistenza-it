@@ -182,17 +182,6 @@ body:not(.v29-interventions) #v28BackupCard{
 <script>
 'use strict';
 const KEY='assistenza_it_v1_1'; let state={clients:[],interventions:[]}, tab='home', current=null, timer=null;
-const MEDIA_DB='ngc-tech-media-v1', MEDIA_STORE='media'; let mediaDb=null; const mediaUrls=new Map();
-function openMediaDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(MEDIA_DB,1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(MEDIA_STORE))r.result.createObjectStore(MEDIA_STORE)};r.onsuccess=()=>{mediaDb=r.result;resolve(mediaDb)};r.onerror=()=>reject(r.error)})}
-function mediaPut(blob){return new Promise((resolve,reject)=>{const id='m_'+Date.now()+'_'+Math.random().toString(36).slice(2,9),tx=mediaDb.transaction(MEDIA_STORE,'readwrite');tx.objectStore(MEDIA_STORE).put(blob,id);tx.oncomplete=()=>resolve(id);tx.onerror=()=>reject(tx.error)})}
-function mediaGet(id){return new Promise((resolve,reject)=>{const r=mediaDb.transaction(MEDIA_STORE).objectStore(MEDIA_STORE).get(id);r.onsuccess=()=>resolve(r.result||null);r.onerror=()=>reject(r.error)})}
-function mediaDelete(id){if(!id)return Promise.resolve();return new Promise((resolve,reject)=>{const tx=mediaDb.transaction(MEDIA_STORE,'readwrite');tx.objectStore(MEDIA_STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)})}
-async function mediaUrl(id){if(!id)return '';if(typeof id==='string'&&id.startsWith('data:image/'))return id;if(mediaUrls.has(id))return mediaUrls.get(id);const b=await mediaGet(id);if(!b)return '';const u=URL.createObjectURL(b);mediaUrls.set(id,u);return u}
-async function mediaSaveDataUrl(data){const b=await (await fetch(data)).blob();return mediaPut(b)}
-function blobToDataUrl(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob)})}
-async function mediaMigrate(){let changed=false;for(const i of state.interventions||[]){if(Array.isArray(i.photos)){const n=[];for(const p of i.photos){if(typeof p==='string'&&p.startsWith('data:image/')){n.push(await mediaSaveDataUrl(p));changed=true}else n.push(p)}i.photos=n}if(typeof i.signature==='string'&&i.signature.startsWith('data:image/')){i.signature=await mediaSaveDataUrl(i.signature);changed=true}}if(changed)save()}
-async function mediaForBackup(i){const c=JSON.parse(JSON.stringify(i));c.photos=[];for(const id of i.photos||[]){const b=await mediaGet(id);if(b)c.photos.push(await blobToDataUrl(b))}if(i.signature){const b=await mediaGet(i.signature);c.signature=b?await blobToDataUrl(b):''}return c}
-async function clearMediaForIntervention(i){for(const id of i.photos||[])if(typeof id==='string'&&!id.startsWith('data:image/'))await mediaDelete(id);if(i.signature&&typeof i.signature==='string'&&!i.signature.startsWith('data:image/'))await mediaDelete(i.signature)}
 function load(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&Array.isArray(x.clients)&&Array.isArray(x.interventions))state=x}catch(e){}}
 function save(){
  try{
@@ -327,35 +316,48 @@ function open(iid){
  (!i.start?'<button class="primary" id="start">▶️ INIZIA INTERVENTO</button>':(!i.end?'<div id="dt" class="timer">'+dur(sec(i))+'</div><button class="primary danger" id="end">⏹️ TERMINA INTERVENTO</button>':'') )+
  '</div>'+
  '<div class="card"><label>Tecnico</label><input id="tech" value="'+esc(i.technician||'')+'" placeholder="Nome tecnico"><label>Tipo intervento</label><select id="typeEdit"><option value="Assistenza tecnica">Assistenza tecnica</option><option value="Installazione">Installazione</option><option value="Manutenzione">Manutenzione</option><option value="Configurazione">Configurazione</option><option value="Riparazione">Riparazione</option><option value="Altro">Altro</option></select><label>Costo (€)</label><input id="costEdit" type="number" inputmode="decimal" min="0" step="0.01" value="'+(Number(i.cost)||0)+'" placeholder="0,00"><label>Indirizzo intervento</label><input id="addressEdit" autocomplete="street-address" value="'+esc(i.address||'')+'" placeholder="Via, numero, città"><label>Problema</label><textarea id="ep" rows="3">'+esc(i.problem)+'</textarea><label>Attività eseguite</label><textarea id="wd" rows="4" placeholder="Cosa hai fatto?">'+esc(i.workDone)+'</textarea><label>Materiali</label><textarea id="ma" rows="3">'+esc(i.materials)+'</textarea><label>Note</label><textarea id="en" rows="3">'+esc(i.notes)+'</textarea><button class="secondary" id="sv">Salva modifiche</button></div>'+
- '<div class="card"><h3>📸 Foto intervento</h3><p class="muted" style="font-size:12px;margin-top:-5px">Le foto vengono salvate nell’archivio locale del dispositivo.</p><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img data-media-id="'+esc(p)+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
- '<div class="card"><h3>✍️ Firma cliente</h3><button type="button" class="secondary" id="openSig">✍️ Firma cliente</button><div id="signaturePreview" class="signature-preview" style="'+(i.signature?'display:block':'display:none')+'">'+(i.signature?'<img id="signaturePreviewImg" alt="Firma cliente">':'')+'<button type="button" class="link-btn" id="editSig">Modifica firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
+ '<div class="card"><h3>📸 Foto intervento</h3><p class="muted" style="font-size:12px;margin-top:-5px">Le foto vengono ottimizzate automaticamente per essere salvate anche su iPhone.</p><div class="row"><button type="button" class="secondary" id="galleryBtn">🖼️ Galleria</button><button type="button" class="secondary" id="cameraBtn">📷 Fotocamera</button></div><input id="galleryInput" type="file" accept="image/*" multiple hidden><input id="cameraInput" type="file" accept="image/*" capture="environment" hidden><div id="photoGrid" class="photo-grid">'+photos.map((p,n)=>'<img src="'+p+'" alt="Foto '+(n+1)+'">').join('')+'</div></div>'+
+ '<div class="card"><h3>✍️ Firma cliente</h3><button type="button" class="secondary" id="openSig">✍️ Firma cliente</button><div id="signaturePreview" class="signature-preview" style="'+(i.signature?'display:block':'display:none')+'">'+(i.signature?'<img src="'+i.signature+'" alt="Firma cliente">':'')+'<button type="button" class="link-btn" id="editSig">Modifica firma</button></div><p id="sigMsg" class="muted small">'+(i.signature?'Firma salvata.':'Firma non ancora salvata.')+'</p></div>'+
  (i.end?'<div class="card no-print"><button class="primary pdf-btn" id="pdf">📄 Genera / Stampa PDF</button><br><br><button class="primary" id="share">Condividi rapporto</button></div>':'')+
  '<div class="card no-print"><button class="secondary" id="deleteIntervention" style="width:100%;color:#b42318;border-color:#f0b5b0">🗑️ Elimina intervento</button></div>';
  const typeEdit=document.getElementById('typeEdit');if(typeEdit)typeEdit.value=i.type||'Assistenza tecnica';const s=document.getElementById('start'),e=document.getElementById('end');
  if(s)s.onclick=startInt;if(e)e.onclick=endInt;
  document.getElementById('sv').onclick=saveInt;
  const deleteIntervention=document.getElementById('deleteIntervention');
- if(deleteIntervention) deleteIntervention.onclick=async()=>{
+ if(deleteIntervention) deleteIntervention.onclick=()=>{
    if(i.start&&!i.end){alert('Non puoi eliminare un intervento in corso. Termina prima l’intervento.');return}
    if(!confirm('Eliminare definitivamente questo intervento? Verranno eliminate anche le foto e la firma associate.'))return;
    const idx=state.interventions.findIndex(x=>x.id===i.id);
    if(idx<0)return;
    state.interventions.splice(idx,1);
-   await clearMediaForIntervention(i);
    save();
    clientDetail(i.clientId);
  };
  async function addPhotos(fileList){
-   const files=[...fileList], oldPhotos=[...(i.photos||[])], added=[]; if(!i.photos)i.photos=[];
-   try{for(const f of files)if(f.type.startsWith('image/')){const idm=await mediaSaveDataUrl(await dataURL(f));i.photos.push(idm);added.push(idm)}
-     if(!save()){i.photos=oldPhotos;for(const idm of added)await mediaDelete(idm);open(i.id);return} open(i.id);
-   }catch(err){console.error(err);i.photos=oldPhotos;for(const idm of added)await mediaDelete(idm);alert('Non è stato possibile aggiungere la foto.');open(i.id)}
+   const files=[...fileList];
+   if(!i.photos)i.photos=[];
+   const oldPhotos=[...i.photos];
+   try{
+     for(const f of files){
+       if(f.type.startsWith('image/')) i.photos.push(await dataURL(f));
+     }
+     if(!save()){
+       i.photos=oldPhotos;
+       open(i.id);
+       return;
+     }
+     open(i.id);
+   }catch(err){
+     console.error(err);
+     i.photos=oldPhotos;
+     alert('Non è stato possibile aggiungere la foto.');
+     open(i.id);
+   }
  }
  document.getElementById('galleryBtn').onclick=()=>document.getElementById('galleryInput').click();
  document.getElementById('cameraBtn').onclick=()=>document.getElementById('cameraInput').click();
  document.getElementById('galleryInput').addEventListener('change',e=>addPhotos(e.target.files));
  document.getElementById('cameraInput').addEventListener('change',e=>addPhotos(e.target.files));
- loadOpenMedia(i.id);
  
  document.getElementById('openSig').onclick=()=>openSignature(i.id);
  document.getElementById('editSig').onclick=()=>openSignature(i.id);
@@ -364,7 +366,6 @@ function open(iid){
  if(i.start&&!i.end)startTimer(i,'dt');
 }
 function fields(i){i.technician=document.getElementById('tech')?.value.trim()||i.technician||'';i.type=document.getElementById('typeEdit')?.value||i.type||'Assistenza tecnica';i.cost=parseFloat(String(document.getElementById('costEdit')?.value||'0').replace(',','.'))||0;i.address=document.getElementById('addressEdit')?.value.trim()||'';i.problem=ep.value.trim();i.workDone=wd.value.trim();i.materials=ma.value.trim();i.notes=en.value.trim()}
-async function loadOpenMedia(iid){const it=find(state.interventions,iid);if(!it)return;for(const img of [...document.querySelectorAll('#photoGrid img[data-media-id]')])img.src=await mediaUrl(img.getAttribute('data-media-id'));const sig=document.getElementById('signaturePreviewImg');if(sig&&it.signature)sig.src=await mediaUrl(it.signature)}
 function startInt(){const i=find(state.interventions,current);if(running()){alert('C’è già un intervento in corso.');return}fields(i);i.start=new Date().toISOString();save();open(i.id)}
 function endInt(){const i=find(state.interventions,current);fields(i);i.end=new Date().toISOString();save();open(i.id)}
 function saveInt(){const i=find(state.interventions,current);fields(i);save();alert('Modifiche salvate.')}
@@ -427,8 +428,6 @@ async function generatePDF(i){
    function addImageFit(data,x,maxY,maxW,maxH,format){
      try{const prop=doc.getImageProperties(data),ratio=prop.width/prop.height;let w=maxW,h=w/ratio;if(h>maxH){h=maxH;w=h*ratio}ensure(h+10);doc.addImage(data,format||'JPEG',x,y,w,h);y+=h+8;return true}catch(_){return false}
    }
-   const photoUrls=[];for(const mid of i.photos||[]){const u=await mediaUrl(mid);if(u)photoUrls.push(u)}
-   const signatureUrl=i.signature?await mediaUrl(i.signature):'';
    header();
 
    // Client + intervention details, side by side
@@ -462,15 +461,15 @@ async function generatePDF(i){
 
    if(i.photos&&i.photos.length){
      ensure(25);box(margin,y,contentW,18,'FOTO INTERVENTO');y+=24;
-     for(const p of photoUrls.slice(0,8)){
+     for(const p of i.photos.slice(0,8)){
        if(y+62>278)newPage();
        addImageFit(p,margin,278,82,58,'JPEG');
      }
    }
-   if(signatureUrl){
+   if(i.signature){
      ensure(65);box(margin,y,contentW,18,'FIRMA CLIENTE');y+=24;
      doc.setDrawColor(...line);doc.roundedRect(margin,y,90,45,2,2,'S');
-     try{doc.addImage(signatureUrl,'JPEG',margin+4,y+3,82,39)}catch(_){}
+     try{doc.addImage(i.signature,'PNG',margin+4,y+3,82,39)}catch(_){}
      y+=52;
    }
    footer();
@@ -480,10 +479,9 @@ async function generatePDF(i){
 }
 function report(i){const c=find(state.clients,i.clientId);return 'RAPPORTO DI INTERVENTO\n\nNumero intervento: '+interventionNumber(i)+'\nFirma cliente: '+(i.signature?'Acquisita':'Non acquisita')+'\nFoto allegate: '+((i.photos||[]).length)+'\nCliente: '+(c?.company||c?.name||'')+'\nData: '+d(i.date)+'\nTecnico: '+(i.technician||'-')+'\nTipo intervento: '+(i.type||'-')+'\nCosto: '+(Number(i.cost)>0?'€ '+Number(i.cost).toFixed(2).replace('.',','):'-')+'\nIndirizzo intervento: '+(i.address||'-')+'\nInizio: '+(i.start?t(i.start):'-')+'\nFine: '+(i.end?t(i.end):'-')+'\nDurata: '+(i.end?dur(sec(i)):'-')+'\n\nPROBLEMA\n'+i.problem+'\n\nATTIVITÀ ESEGUITE\n'+i.workDone+'\n\nMATERIALI\n'+i.materials+'\n\nNOTE\n'+i.notes}
 function shareReport(){const text=report(find(state.interventions,current));if(navigator.share)navigator.share({title:'Rapporto di intervento',text}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>alert('Rapporto copiato.'));else alert(text)}
-async function bootV31(){try{await openMediaDB();load();await mediaMigrate();render()}catch(e){console.error(e);load();render()}}
-bootV31();
+load();render();
 let signatureCanvas=null,signatureCtx=null,signatureDrawing=false,signatureHasInk=false,signatureInterventionId=null,signatureScrollY=0,signatureOldOverflow='',signatureOldPosition='',signatureOldTop='';
-function prepareSignatureCanvas(){const c=document.getElementById('signaturePad'),w=document.getElementById('signaturePadWrap');if(!c||!w)return;signatureCanvas=c;const r=w.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,3);c.width=Math.max(1,Math.round(r.width*dpr));c.height=Math.max(1,Math.round(r.height*dpr));c.style.width=r.width+'px';c.style.height=r.height+'px';signatureCtx=c.getContext('2d');signatureCtx.setTransform(dpr,0,0,dpr,0,0);signatureCtx.lineCap='round';signatureCtx.lineJoin='round';signatureCtx.strokeStyle='#111827';signatureCtx.lineWidth=Math.max(3,Math.min(5,r.width/90));const it=state.interventions.find(x=>x.id===signatureInterventionId);if(it&&it.signature){const img=new Image();img.onload=()=>{signatureCtx.clearRect(0,0,r.width,r.height);signatureCtx.drawImage(img,0,0,r.width,r.height);signatureHasInk=true;document.getElementById('signaturePadGuide').classList.add('hidden')};mediaUrl(it.signature).then(u=>{img.src=u})}else{signatureHasInk=false;document.getElementById('signaturePadGuide').classList.remove('hidden')}}
+function prepareSignatureCanvas(){const c=document.getElementById('signaturePad'),w=document.getElementById('signaturePadWrap');if(!c||!w)return;signatureCanvas=c;const r=w.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,3);c.width=Math.max(1,Math.round(r.width*dpr));c.height=Math.max(1,Math.round(r.height*dpr));c.style.width=r.width+'px';c.style.height=r.height+'px';signatureCtx=c.getContext('2d');signatureCtx.setTransform(dpr,0,0,dpr,0,0);signatureCtx.lineCap='round';signatureCtx.lineJoin='round';signatureCtx.strokeStyle='#111827';signatureCtx.lineWidth=Math.max(3,Math.min(5,r.width/90));const it=state.interventions.find(x=>x.id===signatureInterventionId);if(it&&it.signature){const img=new Image();img.onload=()=>{signatureCtx.clearRect(0,0,r.width,r.height);signatureCtx.drawImage(img,0,0,r.width,r.height);signatureHasInk=true;document.getElementById('signaturePadGuide').classList.add('hidden')};img.src=it.signature}else{signatureHasInk=false;document.getElementById('signaturePadGuide').classList.remove('hidden')}}
 function sigPoint(e){const r=signatureCanvas.getBoundingClientRect();return{x:Math.max(0,Math.min(r.width,e.clientX-r.left)),y:Math.max(0,Math.min(r.height,e.clientY-r.top))}}
 function sigDown(e){if(!signatureCtx)return;e.preventDefault();try{signatureCanvas.setPointerCapture(e.pointerId)}catch(_){}const p=sigPoint(e);signatureDrawing=true;signatureHasInk=true;document.getElementById('signaturePadGuide').classList.add('hidden');signatureCtx.beginPath();signatureCtx.moveTo(p.x,p.y);signatureCtx.lineTo(p.x+.01,p.y+.01);signatureCtx.stroke()}
 function sigMove(e){if(!signatureDrawing||!signatureCtx)return;e.preventDefault();const es=typeof e.getCoalescedEvents==='function'?e.getCoalescedEvents():[e];for(const ev of es){const p=sigPoint(ev);signatureCtx.lineTo(p.x,p.y);signatureCtx.stroke();signatureCtx.beginPath();signatureCtx.moveTo(p.x,p.y)}}
@@ -491,7 +489,7 @@ function sigUp(e){if(!signatureDrawing)return;e.preventDefault();signatureDrawin
 function clearSignature(){if(!signatureCanvas||!signatureCtx)return;const r=signatureCanvas.getBoundingClientRect();signatureCtx.clearRect(0,0,r.width,r.height);signatureHasInk=false;document.getElementById('signaturePadGuide').classList.remove('hidden')}
 function openSignature(id){signatureInterventionId=id;signatureScrollY=window.scrollY||0;signatureOldOverflow=document.body.style.overflow;signatureOldPosition=document.body.style.position;signatureOldTop=document.body.style.top;document.body.classList.add('signature-lock');document.body.style.position='fixed';document.body.style.top='-'+signatureScrollY+'px';const o=document.getElementById('signatureOverlay');o.classList.add('open');o.setAttribute('aria-hidden','false');requestAnimationFrame(()=>requestAnimationFrame(prepareSignatureCanvas))}
 function closeSignature(){const o=document.getElementById('signatureOverlay');o.classList.remove('open');o.setAttribute('aria-hidden','true');signatureDrawing=false;document.body.classList.remove('signature-lock');document.body.style.overflow=signatureOldOverflow;document.body.style.position=signatureOldPosition;document.body.style.top=signatureOldTop;window.scrollTo(0,signatureScrollY)}
-async function confirmSignature(){
+function confirmSignature(){
  if(!signatureCanvas||!signatureHasInk){alert('Inserisci prima la firma del cliente.');return}
  const it=state.interventions.find(x=>x.id===signatureInterventionId);if(!it)return;
  const oldSignature=it.signature||'';
@@ -504,10 +502,11 @@ async function confirmSignature(){
    const ctx=c.getContext('2d',{alpha:false});
    ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);
    ctx.drawImage(signatureCanvas,0,0,w,h);
-   const newSig=await mediaSaveDataUrl(c.toDataURL('image/jpeg',0.82));
-   it.signature=newSig;
-   if(!save()){await mediaDelete(newSig);it.signature=oldSignature;return;}
-   if(oldSignature&&oldSignature!==newSig&&!oldSignature.startsWith('data:image/'))await mediaDelete(oldSignature);
+   it.signature=c.toDataURL('image/jpeg',0.82);
+   if(!save()){
+     it.signature=oldSignature;
+     return;
+   }
    closeSignature();open(it.id);
  }catch(err){
    console.error(err);
@@ -598,9 +597,17 @@ document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementByI
     const copy={clients:[],interventions:[]};
     copy.clients=JSON.parse(JSON.stringify(state.clients||[]));
     for(const original of (state.interventions||[])){
-      const i=await mediaForBackup(original);
-      if(Array.isArray(i.photos)){const photos=[];for(const p of i.photos)photos.push(await v28ImageDataUrl(p,V28_MAX_PHOTO,.66));i.photos=photos}
-      if(i.signature)i.signature=await v28ImageDataUrl(i.signature,V28_MAX_SIGNATURE,.72);
+      const i=JSON.parse(JSON.stringify(original));
+      if(Array.isArray(i.photos)){
+        const photos=[];
+        for(const p of i.photos){
+          photos.push(await v28ImageDataUrl(p,V28_MAX_PHOTO,.66));
+        }
+        i.photos=photos;
+      }
+      if(i.signature){
+        i.signature=await v28ImageDataUrl(i.signature,V28_MAX_SIGNATURE,.72);
+      }
       copy.interventions.push(i);
     }
     return copy;
@@ -665,9 +672,7 @@ document.addEventListener('DOMContentLoaded',()=>{const c=document.getElementByI
         'I dati attuali verranno sostituiti. Prima assicurati di avere un backup recente.'
       );
       if(!ok)return;
-      const imported={clients:clients,interventions:interventions};
-      for(const i of imported.interventions){const ps=[];for(const p of i.photos||[])ps.push(await mediaSaveDataUrl(p));i.photos=ps;if(i.signature)i.signature=await mediaSaveDataUrl(i.signature)}
-      state=imported;
+      state={clients:clients,interventions:interventions};
       if(!save())throw new Error('Salvataggio locale non riuscito');
       alert('Backup importato correttamente.');
       location.reload();
